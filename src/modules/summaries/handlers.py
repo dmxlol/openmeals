@@ -12,9 +12,6 @@ from modules.summaries.schemes import MealSummaryResponse, PeriodicSummaryRespon
 router = APIRouter(tags=["summaries"])
 
 
-# --- Meal Summaries ---
-
-
 @router.get("/meal-summaries", response_model=list[MealSummaryResponse])
 async def list_meal_summaries(
     db: DBSessionDependency,
@@ -29,9 +26,6 @@ async def get_meal_summary(
     summary: MealSummaryDependency,
 ) -> MealSummary:
     return summary
-
-
-# --- Periodic Summaries ---
 
 
 @router.get("/periodic-summaries", response_model=list[PeriodicSummaryResponse])
