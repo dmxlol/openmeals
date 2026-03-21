@@ -6,7 +6,7 @@ from sqlalchemy import select
 from core.config import settings
 from libs.auth import JWTTokenProvider
 from libs.db import fetch_one_or_raise
-from libs.types import DBSessionDependency, HTTPBearerDependency
+from libs.types import DBSessionDependency, HTTPBearerDependency, OptionalHTTPBearerDependency
 from modules.users.models import User, UserProfile
 
 tokens = JWTTokenProvider(settings)
@@ -20,6 +20,17 @@ async def get_current_user_dependency(
     return await fetch_one_or_raise(db, select(User).where(User.id == payload["sub"]))
 
 
+async def get_optional_user_dependency(
+    db: DBSessionDependency,
+    credentials: OptionalHTTPBearerDependency,
+) -> User | None:
+    if credentials is None:
+        return None
+    payload = tokens.decode_token(credentials.credentials, "access")
+    result = await db.execute(select(User).where(User.id == payload["sub"]))
+    return result.scalar_one_or_none()
+
+
 async def get_current_user_profile_dependency(
     db: DBSessionDependency,
     user: t.Annotated[User, Depends(get_current_user_dependency)],
@@ -28,4 +39,5 @@ async def get_current_user_profile_dependency(
 
 
 CurrentUserDependency = t.Annotated[User, Depends(get_current_user_dependency)]
+OptionalUserDependency = t.Annotated[User | None, Depends(get_optional_user_dependency)]
 CurrentUserProfileDependency = t.Annotated[UserProfile, Depends(get_current_user_profile_dependency)]

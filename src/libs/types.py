@@ -11,3 +11,4 @@ from core.database import get_db_dependency
 ULIDStr = t.Annotated[ULID, BeforeValidator(ULID.from_str)]
 DBSessionDependency = t.Annotated[AsyncSession, Depends(get_db_dependency)]
 HTTPBearerDependency = t.Annotated[HTTPAuthorizationCredentials, Security(HTTPBearer())]
+OptionalHTTPBearerDependency = t.Annotated[HTTPAuthorizationCredentials | None, Security(HTTPBearer(auto_error=False))]

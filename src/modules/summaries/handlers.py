@@ -8,6 +8,7 @@ from modules.summaries.dependencies import (
 )
 from modules.summaries.models import MealSummary, PeriodicSummary
 from modules.summaries.schemes import MealSummaryResponse, PeriodicSummaryResponse
+from modules.users.dependencies import CurrentUserDependency
 
 router = APIRouter(tags=["summaries"])
 
@@ -15,9 +16,9 @@ router = APIRouter(tags=["summaries"])
 @router.get("/meal-summaries", response_model=list[MealSummaryResponse])
 async def list_meal_summaries(
     db: DBSessionDependency,
+    user: CurrentUserDependency,
 ) -> list[MealSummary]:
-    # TODO: filter by current user
-    result = await db.execute(select(MealSummary))
+    result = await db.execute(select(MealSummary).where(MealSummary.user_id == user.id))
     return list(result.scalars().all())
 
 
@@ -31,9 +32,9 @@ async def get_meal_summary(
 @router.get("/periodic-summaries", response_model=list[PeriodicSummaryResponse])
 async def list_periodic_summaries(
     db: DBSessionDependency,
+    user: CurrentUserDependency,
 ) -> list[PeriodicSummary]:
-    # TODO: filter by current user
-    result = await db.execute(select(PeriodicSummary))
+    result = await db.execute(select(PeriodicSummary).where(PeriodicSummary.user_id == user.id))
     return list(result.scalars().all())
 
 

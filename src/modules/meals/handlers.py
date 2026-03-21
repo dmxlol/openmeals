@@ -16,6 +16,7 @@ from modules.meals.schemes import (
     MealResponse,
     MealUpdate,
 )
+from modules.users.dependencies import CurrentUserDependency
 
 router = APIRouter(prefix="/meals", tags=["meals"])
 
@@ -23,9 +24,9 @@ router = APIRouter(prefix="/meals", tags=["meals"])
 @router.get("", response_model=list[MealResponse])
 async def list_meals(
     db: DBSessionDependency,
+    user: CurrentUserDependency,
 ) -> list[Meal]:
-    # TODO: filter by current user
-    result = await db.execute(select(Meal))
+    result = await db.execute(select(Meal).where(Meal.user_id == user.id))
     return list(result.scalars().all())
 
 
@@ -40,9 +41,9 @@ async def get_meal(
 async def create_meal(
     body: MealCreate,
     db: DBSessionDependency,
+    user: CurrentUserDependency,
 ) -> Meal:
-    # TODO: set user_id from current user
-    meal = Meal(**body.model_dump(), user_id="stub")
+    meal = Meal(**body.model_dump(), user_id=user.id)
     db.add(meal)
     await db.commit()
     await db.refresh(meal)
@@ -76,12 +77,11 @@ async def delete_meal(
 
 @router.post("/{meal_id}/foods", response_model=MealFoodResponse, status_code=status.HTTP_201_CREATED)
 async def add_meal_food(
-    meal_id: str,
     body: MealFoodCreate,
     db: DBSessionDependency,
+    meal: MealDependency,
 ) -> MealFood:
-    # TODO: set user_id from current user
-    meal_food = MealFood(user_id="stub", meal_id=meal_id, **body.model_dump())
+    meal_food = MealFood(user_id=meal.user_id, meal_id=meal.id, **body.model_dump())
     db.add(meal_food)
     await db.commit()
     await db.refresh(meal_food)
@@ -114,12 +114,11 @@ async def delete_meal_food(
 
 @router.post("/{meal_id}/drinks", response_model=MealDrinkResponse, status_code=status.HTTP_201_CREATED)
 async def add_meal_drink(
-    meal_id: str,
     body: MealDrinkCreate,
     db: DBSessionDependency,
+    meal: MealDependency,
 ) -> MealDrink:
-    # TODO: set user_id from current user
-    meal_drink = MealDrink(user_id="stub", meal_id=meal_id, **body.model_dump())
+    meal_drink = MealDrink(user_id=meal.user_id, meal_id=meal.id, **body.model_dump())
     db.add(meal_drink)
     await db.commit()
     await db.refresh(meal_drink)

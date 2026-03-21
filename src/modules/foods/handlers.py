@@ -6,13 +6,15 @@ from fastapi import APIRouter, Query
 from sqlalchemy import func, select
 from starlette import status
 
+from libs.db import ingestible_visible_filter
 from libs.exceptions import TimeoutError
 from libs.schemes import SearchResultList, SearchResultSchema
 from libs.types import DBSessionDependency
-from modules.foods.dependencies import FoodDependency
+from modules.foods.dependencies import FoodDependency, WritableFoodDependency
 from modules.foods.models import Food
 from modules.foods.schemes import FoodCreate, FoodResponse, FoodUpdate
 from modules.foods.tasks import generate_food_embedding
+from modules.users.dependencies import CurrentUserDependency, OptionalUserDependency
 from services.tasks import embed_text
 
 router = APIRouter(prefix="/foods", tags=["foods"])
@@ -21,12 +23,12 @@ router = APIRouter(prefix="/foods", tags=["foods"])
 @router.get("", response_model=list[FoodResponse])
 async def list_foods(
     db: DBSessionDependency,
-    curated: t.Annotated[bool | None, Query()] = None,
+    user: OptionalUserDependency,
     mine: t.Annotated[bool | None, Query()] = None,
 ) -> list[Food]:
-    stmt = select(Food)
-    if curated is True:
-        stmt = stmt.where(Food.curated.is_(True))
+    stmt = select(Food).where(ingestible_visible_filter(Food, user))
+    if mine is True and user is not None:
+        stmt = stmt.where(Food.creator_id == user.id)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -34,6 +36,7 @@ async def list_foods(
 @router.get("/search", response_model=list[SearchResultSchema])
 async def search_foods(
     db: DBSessionDependency,
+    _user: OptionalUserDependency,
     q: t.Annotated[str, Query(min_length=1)],
     limit: t.Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> list[SearchResultSchema]:
@@ -71,8 +74,9 @@ async def get_food(
 async def create_food(
     body: FoodCreate,
     db: DBSessionDependency,
+    user: CurrentUserDependency,
 ) -> Food:
-    food = Food(**body.model_dump())
+    food = Food(**body.model_dump(), creator_id=user.id)
     db.add(food)
     await db.commit()
     await db.refresh(food)
@@ -84,7 +88,7 @@ async def create_food(
 async def update_food(
     body: FoodUpdate,
     db: DBSessionDependency,
-    food: FoodDependency,
+    food: WritableFoodDependency,
 ) -> Food:
     updates = body.model_dump(exclude_unset=True)
     for key, value in updates.items():
@@ -99,7 +103,7 @@ async def update_food(
 @router.delete("/{food_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_food(
     db: DBSessionDependency,
-    food: FoodDependency,
+    food: WritableFoodDependency,
 ) -> None:
     await db.delete(food)
     await db.commit()
