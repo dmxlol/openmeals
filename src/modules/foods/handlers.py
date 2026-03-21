@@ -6,13 +6,14 @@ from fastapi import APIRouter, Query
 from sqlalchemy import func, select
 from starlette import status
 
+from core.schemes import CursorPage
 from libs.db import ingestible_visible_filter
 from libs.exceptions import TimeoutError
-from libs.schemes import SearchResultList, SearchResultSchema
+from libs.pagination import PaginationDependency, paginate
 from libs.types import DBSessionDependency
 from modules.foods.dependencies import FoodDependency, WritableFoodDependency
 from modules.foods.models import Food
-from modules.foods.schemes import FoodCreate, FoodResponse, FoodUpdate
+from modules.foods.schemes import FoodCreate, FoodResponse, FoodSearchResult, FoodUpdate
 from modules.foods.tasks import generate_food_embedding
 from modules.users.dependencies import CurrentUserDependency, OptionalUserDependency
 from services.tasks import embed_text
@@ -20,26 +21,26 @@ from services.tasks import embed_text
 router = APIRouter(prefix="/foods", tags=["foods"])
 
 
-@router.get("", response_model=list[FoodResponse])
+@router.get("", response_model=CursorPage[FoodResponse])
 async def list_foods(
     db: DBSessionDependency,
     user: OptionalUserDependency,
+    pagination: PaginationDependency,
     mine: t.Annotated[bool | None, Query()] = None,
-) -> list[Food]:
+) -> CursorPage[Food]:
     stmt = select(Food).where(ingestible_visible_filter(Food, user))
     if mine is True and user is not None:
         stmt = stmt.where(Food.creator_id == user.id)
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
+    return await paginate(db, stmt, Food, pagination)
 
 
-@router.get("/search", response_model=list[SearchResultSchema])
+@router.get("/search")
 async def search_foods(
     db: DBSessionDependency,
     _user: OptionalUserDependency,
     q: t.Annotated[str, Query(min_length=1)],
     limit: t.Annotated[int, Query(ge=1, le=100)] = 20,
-) -> list[SearchResultSchema]:
+) -> list[FoodSearchResult]:
     try:
         task_result = embed_text.delay(q)
         query_embedding = await asyncio.wait_for(
@@ -51,8 +52,7 @@ async def search_foods(
 
     stmt = (
         select(
-            Food.id,
-            Food.name,
+            Food,
             func.round(Food.embedding.cosine_distance(query_embedding), 3).label("score"),
         )
         .where(Food.embedding.is_not(None))
@@ -60,7 +60,7 @@ async def search_foods(
         .limit(limit)
     )
     result = await db.execute(stmt)
-    return SearchResultList.validate_python(result.mappings().all())
+    return [FoodSearchResult.model_validate(row.Food, update={"score": row.score}) for row in result.all()]
 
 
 @router.get("/{food_id}", response_model=FoodResponse)

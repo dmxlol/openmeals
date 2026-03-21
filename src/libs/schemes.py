@@ -1,4 +1,4 @@
-from pydantic import AwareDatetime, ConfigDict, TypeAdapter
+from pydantic import AwareDatetime, ConfigDict
 from pydantic import BaseModel as PydanticModel
 from pydantic.alias_generators import to_camel
 
@@ -39,10 +39,3 @@ class TimestampSchema(UpdatedSchema, CreatedSchema):
 
 class UserIdSchema(BaseSchema):
     user_id: ULIDStr
-
-
-class SearchResultSchema(NamedIdSchema):
-    score: float
-
-
-SearchResultList = TypeAdapter(list[SearchResultSchema])

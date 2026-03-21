@@ -37,3 +37,7 @@ class FoodUpdate(BaseSchema):
 class FoodResponse(TimestampSchema, IdSchema, FoodBase):
     creator_id: str | None = None
     curated: bool | None = None
+
+
+class FoodSearchResult(FoodResponse):
+    score: float

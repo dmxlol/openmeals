@@ -27,3 +27,7 @@ class DrinkUpdate(BaseSchema):
 class DrinkResponse(TimestampSchema, IdSchema, DrinkBase):
     creator_id: str | None = None
     curated: bool | None = None
+
+
+class DrinkSearchResult(DrinkResponse):
+    score: float

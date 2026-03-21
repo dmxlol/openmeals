@@ -2,6 +2,8 @@ from fastapi import APIRouter
 from sqlalchemy import select
 from starlette import status
 
+from core.schemes import CursorPage
+from libs.pagination import PaginationDependency, paginate
 from libs.types import DBSessionDependency
 from modules.meals.dependencies import MealDependency, MealDrinkDependency, MealFoodDependency
 from modules.meals.models import Meal, MealDrink, MealFood
@@ -21,13 +23,14 @@ from modules.users.dependencies import CurrentUserDependency
 router = APIRouter(prefix="/meals", tags=["meals"])
 
 
-@router.get("", response_model=list[MealResponse])
+@router.get("", response_model=CursorPage[MealResponse])
 async def list_meals(
     db: DBSessionDependency,
     user: CurrentUserDependency,
-) -> list[Meal]:
-    result = await db.execute(select(Meal).where(Meal.user_id == user.id))
-    return list(result.scalars().all())
+    pagination: PaginationDependency,
+) -> CursorPage[Meal]:
+    stmt = select(Meal).where(Meal.user_id == user.id)
+    return await paginate(db, stmt, Meal, pagination)
 
 
 @router.get("/{meal_id}", response_model=MealResponse)
