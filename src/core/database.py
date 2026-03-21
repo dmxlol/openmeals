@@ -18,4 +18,4 @@ async def get_db_dependency() -> t.AsyncGenerator[AsyncSession]:
 
 @lru_cache(maxsize=1)
 def get_sync_engine() -> Engine:
-    return create_engine(settings.database_url.get_secret_value().replace("+asyncpg", ""))
+    return create_engine(settings.database_url.get_secret_value().replace("+asyncpg", "+psycopg"))

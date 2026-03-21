@@ -21,6 +21,9 @@ class EmbeddingSettings(BaseSettings):
 
 
 class Settings(BaseSettings):
+    def __hash__(self) -> int:
+        return id(self)
+
     env: str = ENVIRONMENT
     version: str = "0.0.1a"
 

@@ -1,6 +1,6 @@
 services:
   db:
-    image: citusdata/citus:postgres_17
+    build: { dockerfile: Dockerfile.db }
     environment:
       POSTGRES_USER: nutrition
       POSTGRES_PASSWORD: nutrition

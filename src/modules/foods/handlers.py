@@ -3,7 +3,7 @@ import builtins
 import typing as t
 
 from fastapi import APIRouter, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from starlette import status
 
 from libs.exceptions import TimeoutError
@@ -50,7 +50,7 @@ async def search_foods(
         select(
             Food.id,
             Food.name,
-            Food.embedding.cosine_distance(query_embedding).label("score"),
+            func.round(Food.embedding.cosine_distance(query_embedding), 3).label("score"),
         )
         .where(Food.embedding.is_not(None))
         .order_by("score")
