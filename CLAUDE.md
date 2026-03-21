@@ -1,3 +1,7 @@
+# Openmeals API
+
+@README.md
+
 ## Import rules
 - `core` must not import from `modules` or `services`
 - `libs` must not import from `modules` or `services`
@@ -35,9 +39,11 @@
 
 ## Forbidden patterns
 - `print()` for logging — use the injected `request.logger`
+- private variables/functions in module (.e.g _var = foo  then def foo(): print(_var))
 - `@property` for heavy computation or I/O — use `@cached_property` or an explicit async method
 - Bare `except:` or `except Exception:` without re-raising
 - Mutable default arguments
 - Hardcoded secrets or magic values — use `core/config.py` settings
 - `import *` except in `__init__.py` re-exports
+- imports anywhere but at the beginning of file
 - Passing `doc.id` (ObjectId) to a Beanie `Link` field — pass the full document object so the link resolves correctly

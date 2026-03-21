@@ -42,14 +42,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
 
-    google_client_id: str
-    google_client_secret: SecretStr
-
     celery: CelerySettings = CelerySettings()
     aws_region: str = "eu-central-1"
-
-    anthropic_api_key: SecretStr
-    anthropic_model: str = "claude-sonnet-4-6"
 
     embedding: "EmbeddingSettings" = EmbeddingSettings()
 
