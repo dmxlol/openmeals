@@ -1,0 +1,26 @@
+import typing as t
+
+from fastapi import Depends
+from sqlalchemy import select
+
+from libs.db import fetch_one_or_raise
+from libs.types import DBSessionDependency
+from modules.summaries.models import MealSummary, PeriodicSummary
+
+
+async def get_meal_summary_dependency(
+    summary_id: str,
+    db: DBSessionDependency,
+) -> MealSummary:
+    return await fetch_one_or_raise(db, select(MealSummary).where(MealSummary.id == summary_id))
+
+
+async def get_periodic_summary_dependency(
+    summary_id: str,
+    db: DBSessionDependency,
+) -> PeriodicSummary:
+    return await fetch_one_or_raise(db, select(PeriodicSummary).where(PeriodicSummary.id == summary_id))
+
+
+MealSummaryDependency = t.Annotated[MealSummary, Depends(get_meal_summary_dependency)]
+PeriodicSummaryDependency = t.Annotated[PeriodicSummary, Depends(get_periodic_summary_dependency)]
