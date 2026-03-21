@@ -28,11 +28,11 @@
 - Use github flow (feature-branch → master)
 - Semantic commit messages: `tag(context): summary`
   - `fix`/`feat` for changes that require a new version; other tags for the rest
-- No `Co-authored-by` headers
+- No `Co-Authored-By` headers
 - Summary only; add a description body only for breaking changes
 
 ## FastAPI-specific rules
-- Always use `Depends(some_function)`, never bare `Depends()` with a Pydantic model — that treats the model as a request body
+- `Depends(some_function)` for single-value dependencies; `Depends(PydanticModel)` is fine for grouped query params (e.g. `PaginationParams`)
 - On GET endpoints, annotate non-path parameters explicitly with `Query(...)` — do not rely on implicit resolution
 - Route handlers should be thin: resolve dependencies, call a service/manager, return response
 - Use `BackgroundTasks` for fire-and-forget DB updates after the response is built

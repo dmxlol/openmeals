@@ -1,18 +1,18 @@
-import dataclasses
 import typing as t
 
-from fastapi import Depends, Query
+from fastapi import Depends
+from pydantic import Field
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.schemes import CursorPage
 from libs.models import ULIDPKMixin
+from libs.schemes import BaseSchema
 
 
-@dataclasses.dataclass
-class PaginationParams:
-    cursor: t.Annotated[str | None, Query()] = None
-    limit: t.Annotated[int, Query(ge=1, le=100)] = 20
+class PaginationParams(BaseSchema):
+    cursor: str | None = None
+    limit: t.Annotated[int, Field(ge=1, le=100)] = 20
 
 
 PaginationDependency = t.Annotated[PaginationParams, Depends(PaginationParams)]
