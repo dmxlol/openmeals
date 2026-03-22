@@ -1,6 +1,6 @@
 export PYTHONPATH := src
 
-.PHONY: install install-dev run worker script download-model format lint test migrate migration db
+.PHONY: install install-dev run worker script download-model format lint test test-unit test-integration migrate migration db
 
 install:
 	uv sync
@@ -29,6 +29,12 @@ lint:
 
 test:
 	uv run pytest tests/ -v
+
+test-unit:
+	uv run pytest tests/unit/ -v
+
+test-integration:
+	uv run pytest tests/integration/ -v
 
 migrate:
 	uv run alembic upgrade head

@@ -29,6 +29,10 @@ def create_embedding_provider(settings: "Settings") -> "EmbeddingProvider":
                 model_name=settings.embedding.model,
                 dimension=settings.embedding.dimension,
             )
+        case "mock":
+            from libs.embeddings.mock import MockProvider
+
+            return MockProvider(dimension=settings.embedding.dimension)
         case _:
             msg = f"Unknown embedding provider: {settings.embedding.provider}"
             raise ValueError(msg)

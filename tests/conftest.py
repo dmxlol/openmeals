@@ -2,19 +2,18 @@ import os
 import typing as t
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
+os.environ["ENVIRONMENT"] = "test"
 
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test")
-os.environ.setdefault("SECRET_KEY", "test-secret-key")
-os.environ.setdefault("GOOGLE_CLIENT_ID", "test-client-id")
-os.environ.setdefault("GOOGLE_CLIENT_SECRET", "test-client-secret")
-os.environ.setdefault("CELERY_BROKER_URL", "sqs://localhost")
-os.environ.setdefault("ANTHROPIC_API_KEY", "test-api-key")
+from dotenv import load_dotenv  # noqa: E402
 
-from core.app import create_app  # noqa: E402
+load_dotenv(".env.test", override=True)
+
+import pytest  # noqa: E402
+from httpx import ASGITransport, AsyncClient  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
+
 from core.database import get_db_dependency  # noqa: E402
+from core.fastapi import create_app  # noqa: E402
 
 
 @pytest.fixture

@@ -14,7 +14,7 @@ class CelerySettings(BaseSettings):
 
 
 class EmbeddingSettings(BaseSettings):
-    provider: t.Literal["sentence-transformers", "triton", "openai"] = "sentence-transformers"
+    provider: t.Literal["sentence-transformers", "triton", "openai", "mock"] = "sentence-transformers"
     model: str = "intfloat/multilingual-e5-base"
     dimension: int = 768
     model_config = SettingsConfigDict(env_prefix="EMBEDDING_")

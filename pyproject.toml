@@ -39,6 +39,7 @@ dev = [
     "pytest-asyncio",
     "ruff",
     "ipython",
+    "polyfactory",
 ]
 ml = [
     "torch",
