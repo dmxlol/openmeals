@@ -7,35 +7,27 @@ dependencies = [
     # web
     "fastapi[standard]~=0.135.0",
     "uvicorn[standard]~=0.42.0",      # pulls uvloop + httptools automatically
-
     # db
     "sqlmodel~=0.0.37",
     "sqlalchemy[asyncio]~=2.0.48",
     "asyncpg~=0.31.0",
     "psycopg[binary]~=3.2.0",
     "alembic~=1.18.4",
-
     # config/validation
     "pydantic~=2.12.5",
     "pydantic-settings~=2.13.1",
-
     # auth
     "authlib~=1.6.9",
     "httpx",
-
     # ulid
     "python-ulid~=3.1.0",
-
     # vector search
     "pgvector~=0.4.0",
-
     # task queue
     "celery[redis]~=5.4.0",
-
     # ml-depedencies. in default for simplicity, but must be used only in worker scope.
     "torch",
     "sentence-transformers~=4.0.0",
-
     # observability
     "opentelemetry-api",
     "opentelemetry-sdk",
@@ -43,6 +35,8 @@ dependencies = [
     "opentelemetry-instrumentation-sqlalchemy",
     "opentelemetry-instrumentation-celery",
     "opentelemetry-instrumentation-httpx",
+    "boto3~=1.42.73",
+    "pillow~=12.1.1",
 ]
 
 [dependency-groups]
@@ -53,6 +47,7 @@ dev = [
     "ipython",
     "polyfactory",
     "pytest-cov>=7.1.0",
+    "boto3-stubs[s3]>=1.42.73",
 ]
 
 [tool.uv.sources]

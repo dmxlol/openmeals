@@ -3,19 +3,22 @@ import builtins
 import typing as t
 
 from fastapi import APIRouter, Query
-from sqlalchemy import func, select
+from sqlalchemy import Numeric, cast, func, select
 from starlette import status
 
+from core.config import settings
 from core.schemes import CursorPage
 from libs.db import ingestible_visible_filter
 from libs.exceptions import TimeoutError
 from libs.pagination import PaginationDependency, paginate
+from libs.schemes import ImageUploadResponse
 from libs.types import DBSessionDependency
 from modules.foods.dependencies import FoodDependency, WritableFoodDependency
 from modules.foods.models import Food
 from modules.foods.schemes import FoodCreate, FoodResponse, FoodSearchResult, FoodUpdate
-from modules.foods.tasks import generate_food_embedding
+from modules.foods.tasks import generate_food_embedding, process_food_image
 from modules.users.dependencies import CurrentUserDependency, OptionalUserDependency
+from services.image import ImageManagerDependency
 from services.tasks import embed_text
 
 router = APIRouter(prefix="/foods", tags=["foods"])
@@ -53,14 +56,14 @@ async def search_foods(
     stmt = (
         select(
             Food,
-            func.round(Food.embedding.cosine_distance(query_embedding), 3).label("score"),
+            func.round(cast(Food.embedding.cosine_distance(query_embedding), Numeric), 3).label("score"),
         )
         .where(Food.embedding.is_not(None))
         .order_by("score")
         .limit(limit)
     )
     result = await db.execute(stmt)
-    return [FoodSearchResult.model_validate(row.Food, update={"score": row.score}) for row in result.all()]
+    return [FoodSearchResult(**row.Food.model_dump(), score=row.score) for row in result.all()]
 
 
 @router.get("/{food_id}", response_model=FoodResponse)
@@ -107,3 +110,24 @@ async def delete_food(
 ) -> None:
     await db.delete(food)
     await db.commit()
+
+
+@router.post("/{food_id}/image")
+async def upload_food_image(
+    food: WritableFoodDependency,
+    db: DBSessionDependency,
+    image_manager: ImageManagerDependency,
+    content_type: t.Annotated[str, Query(pattern=r"^image/(jpeg|png|webp|gif)$")],
+) -> ImageUploadResponse:
+    result = image_manager.generate_upload_url(
+        entity_type=Food.__tablename__,
+        entity_id=str(food.id),
+        content_type=content_type,
+    )
+    food.image_key = result.image_key
+    await db.commit()
+    process_food_image.apply_async(
+        args=(str(food.id), result.image_key),
+        countdown=settings.s3.image_upload_countdown,
+    )
+    return result

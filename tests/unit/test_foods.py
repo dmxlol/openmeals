@@ -5,9 +5,12 @@ from httpx import AsyncClient
 from starlette import status
 from ulid import ULID
 
+from core.config import settings
 from libs.datetime import utcnow
+from libs.schemes import ImageUploadResponse
 from modules.foods.dependencies import get_food_dependency, get_writable_food_dependency
 from modules.foods.models import Food
+from services.image import get_image_manager
 
 
 def _make_food(**overrides) -> Food:
@@ -156,3 +159,51 @@ async def test_create_food_requires_auth(anon_client: AsyncClient) -> None:
     }
     response = await anon_client.post("/api/v1/foods", json=body)
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+async def test_upload_food_image(client: AsyncClient, app: FastAPI, mock_db: AsyncMock) -> None:
+    food = _make_food()
+    app.dependency_overrides[get_writable_food_dependency] = lambda: food
+
+    mock_manager = MagicMock()
+    mock_manager.generate_upload_url.return_value = ImageUploadResponse(
+        upload_url="https://s3.example.com/presigned",
+        image_key="raw/foods/abc/def.jpg",
+    )
+    app.dependency_overrides[get_image_manager] = lambda: mock_manager
+
+    with patch("modules.foods.handlers.process_food_image") as mock_task:
+        response = await client.post(f"/api/v1/foods/{food.id}/image?content_type=image/jpeg")
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["uploadUrl"] == "https://s3.example.com/presigned"
+    assert data["imageKey"] == "raw/foods/abc/def.jpg"
+
+    mock_manager.generate_upload_url.assert_called_once_with(
+        entity_type="foods",
+        entity_id=str(food.id),
+        content_type="image/jpeg",
+    )
+    assert food.image_key == "raw/foods/abc/def.jpg"
+    mock_db.commit.assert_awaited_once()
+    mock_task.apply_async.assert_called_once_with(
+        args=(str(food.id), "raw/foods/abc/def.jpg"),
+        countdown=settings.s3.image_upload_countdown,
+    )
+
+
+async def test_upload_food_image_requires_auth(anon_client: AsyncClient) -> None:
+    response = await anon_client.post("/api/v1/foods/00000000000000000000000001/image?content_type=image/jpeg")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+async def test_food_response_includes_image_url(client: AsyncClient, app: FastAPI) -> None:
+    food = _make_food(image_key="foods/abc/hash.webp")
+    app.dependency_overrides[get_food_dependency] = lambda: food
+
+    response = await client.get(f"/api/v1/foods/{food.id}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert "imageUrl" in data
+    assert data["imageUrl"].endswith("foods/abc/hash.webp")

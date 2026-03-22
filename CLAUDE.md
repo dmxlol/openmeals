@@ -1,6 +1,36 @@
 # Openmeals API
 
-@README.md
+## Stack
+
+- **Python 3.13** · **FastAPI** · **SQLAlchemy** · **SQLModel**
+- **PostgreSQL** (Citus) · **pgvector** for vector similarity search
+- **Celery** + **Redis** for async task processing
+- **sentence-transformers** (`intfloat/multilingual-e5-base`) for multilingual embeddings
+- **authlib** for JWT and OAuth
+
+## Project structure
+
+```
+migrations/   # DB migrations
+tests/        # unit and e2e tests
+src/
+    core/      # app config, framework entrypoints, shared DB/scheme primitives
+    modules/   # subapplications (one per business domain)
+    libs/      # shared low-level utilities (DB mixins, time helpers)
+    services/  # business logic managers — sit between modules and external systems
+    utils/     # generic helpers (FastAPI factory, S3 utils, etc.)
+```
+
+Each module under `src/modules/` follows this layout most of them are optional:
+```
+modulesX/
+    dependencies.py  # FastAPI dependencies: request validation, DB retrieval
+    dto.py           # dataclasses grouping resolved dependencies for handlers
+    models.py        # ORM definitions
+    handlers.py      # FastAPI route handlers
+    schemes.py       # Pydantic request/response schemas
+    exceptions.py    # package-specific exceptions
+```
 
 ## Import rules
 - `core` must not import from `modules` or `services`

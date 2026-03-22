@@ -5,9 +5,12 @@ from httpx import AsyncClient
 from starlette import status
 from ulid import ULID
 
+from core.config import settings
 from libs.datetime import utcnow
+from libs.schemes import ImageUploadResponse
 from modules.drinks.dependencies import get_drink_dependency, get_writable_drink_dependency
 from modules.drinks.models import Drink
+from services.image import get_image_manager
 
 
 def _make_drink(**overrides) -> Drink:
@@ -114,3 +117,51 @@ async def test_delete_drink(client: AsyncClient, app: FastAPI, mock_db: AsyncMoc
 async def test_create_drink_requires_auth(anon_client: AsyncClient) -> None:
     response = await anon_client.post("/api/v1/drinks", json={"name": "X", "ph": 7.0})
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+async def test_upload_drink_image(client: AsyncClient, app: FastAPI, mock_db: AsyncMock) -> None:
+    drink = _make_drink()
+    app.dependency_overrides[get_writable_drink_dependency] = lambda: drink
+
+    mock_manager = MagicMock()
+    mock_manager.generate_upload_url.return_value = ImageUploadResponse(
+        upload_url="https://s3.example.com/presigned",
+        image_key="raw/drinks/abc/def.jpg",
+    )
+    app.dependency_overrides[get_image_manager] = lambda: mock_manager
+
+    with patch("modules.drinks.handlers.process_drink_image") as mock_task:
+        response = await client.post(f"/api/v1/drinks/{drink.id}/image?content_type=image/jpeg")
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["uploadUrl"] == "https://s3.example.com/presigned"
+    assert data["imageKey"] == "raw/drinks/abc/def.jpg"
+
+    mock_manager.generate_upload_url.assert_called_once_with(
+        entity_type="drinks",
+        entity_id=str(drink.id),
+        content_type="image/jpeg",
+    )
+    assert drink.image_key == "raw/drinks/abc/def.jpg"
+    mock_db.commit.assert_awaited_once()
+    mock_task.apply_async.assert_called_once_with(
+        args=(str(drink.id), "raw/drinks/abc/def.jpg"),
+        countdown=settings.s3.image_upload_countdown,
+    )
+
+
+async def test_upload_drink_image_requires_auth(anon_client: AsyncClient) -> None:
+    response = await anon_client.post("/api/v1/drinks/00000000000000000000000001/image?content_type=image/jpeg")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+async def test_drink_response_includes_image_url(client: AsyncClient, app: FastAPI) -> None:
+    drink = _make_drink(image_key="drinks/abc/hash.webp")
+    app.dependency_overrides[get_drink_dependency] = lambda: drink
+
+    response = await client.get(f"/api/v1/drinks/{drink.id}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert "imageUrl" in data
+    assert data["imageUrl"].endswith("drinks/abc/hash.webp")

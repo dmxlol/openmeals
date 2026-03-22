@@ -1,9 +1,14 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import settings
+from libs.schemes import ImageUploadResponse
 from modules.foods.models import Food
 from modules.users.models import User
+from services.image import get_image_manager
 from tests.factories import FoodFactory, UserFactory
 
 
@@ -176,3 +181,60 @@ class TestDeleteFood:
     async def test_cannot_delete_curated(self, client: AsyncClient, curated_food: Food):
         resp = await client.delete(f"/api/v1/foods/{curated_food.id}")
         assert resp.status_code == 403
+
+
+class TestUploadFoodImage:
+    @pytest.fixture
+    def mock_image_manager(self):
+        manager = MagicMock()
+        manager.generate_upload_url.return_value = ImageUploadResponse(
+            upload_url="https://s3.example.com/presigned",
+            image_key="raw/foods/test/abc.jpg",
+        )
+        return manager
+
+    async def test_upload_returns_presigned_url(self, client: AsyncClient, food: Food, app, mock_image_manager):
+        app.dependency_overrides[get_image_manager] = lambda: mock_image_manager
+
+        with patch("modules.foods.handlers.process_food_image"):
+            resp = await client.post(f"/api/v1/foods/{food.id}/image?content_type=image/jpeg")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["uploadUrl"] == "https://s3.example.com/presigned"
+        assert data["imageKey"] == "raw/foods/test/abc.jpg"
+
+    async def test_upload_sets_image_key_on_food(
+        self, client: AsyncClient, food: Food, db_session: AsyncSession, app, mock_image_manager
+    ):
+        app.dependency_overrides[get_image_manager] = lambda: mock_image_manager
+
+        with patch("modules.foods.handlers.process_food_image"):
+            resp = await client.post(f"/api/v1/foods/{food.id}/image?content_type=image/png")
+
+        assert resp.status_code == 200
+        await db_session.refresh(food)
+        assert food.image_key == "raw/foods/test/abc.jpg"
+
+    async def test_upload_dispatches_task_with_countdown(
+        self, client: AsyncClient, food: Food, app, mock_image_manager
+    ):
+        app.dependency_overrides[get_image_manager] = lambda: mock_image_manager
+
+        with patch("modules.foods.handlers.process_food_image") as mock_task:
+            resp = await client.post(f"/api/v1/foods/{food.id}/image?content_type=image/jpeg")
+
+        assert resp.status_code == 200
+        mock_task.apply_async.assert_called_once_with(
+            args=(str(food.id), "raw/foods/test/abc.jpg"),
+            countdown=settings.s3.image_upload_countdown,
+        )
+
+    async def test_cannot_upload_for_global_food(self, client: AsyncClient, global_food: Food):
+        resp = await client.post(f"/api/v1/foods/{global_food.id}/image?content_type=image/jpeg")
+        assert resp.status_code == 403
+
+    async def test_response_includes_image_url(self, client: AsyncClient, food: Food):
+        resp = await client.get(f"/api/v1/foods/{food.id}")
+        assert resp.status_code == 200
+        assert "imageUrl" in resp.json()

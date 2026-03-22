@@ -1,10 +1,12 @@
+import typing as t
+
 from libs.schemes import BaseSchema
 
 
 class TokenResponse(BaseSchema):
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: t.Literal["bearer"] = "bearer"  # noqa: S105
 
 
 class RefreshRequest(BaseSchema):

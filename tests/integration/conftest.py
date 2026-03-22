@@ -44,6 +44,7 @@ async def _create_tables(engine) -> None:
     registry.get_all_models()
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        await conn.run_sync(SQLModel.metadata.drop_all)
         await conn.run_sync(SQLModel.metadata.create_all)
     _tables_created = True
 
@@ -96,13 +97,16 @@ async def test_user(db_session: AsyncSession) -> User:
 
 
 @pytest.fixture
-async def client(db_session: AsyncSession, test_user: User) -> t.AsyncGenerator[AsyncClient]:
-    app = create_app()
+async def app(db_session: AsyncSession, test_user: User):
+    application = create_app()
+    application.dependency_overrides[get_db_dependency] = lambda: db_session
+    application.dependency_overrides[get_current_user_dependency] = lambda: test_user
+    application.dependency_overrides[get_optional_user_dependency] = lambda: test_user
+    return application
 
-    app.dependency_overrides[get_db_dependency] = lambda: db_session
-    app.dependency_overrides[get_current_user_dependency] = lambda: test_user
-    app.dependency_overrides[get_optional_user_dependency] = lambda: test_user
 
+@pytest.fixture
+async def client(app) -> t.AsyncGenerator[AsyncClient]:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
@@ -112,13 +116,12 @@ async def client(db_session: AsyncSession, test_user: User) -> t.AsyncGenerator[
 
 @pytest.fixture
 async def anon_client(db_session: AsyncSession) -> t.AsyncGenerator[AsyncClient]:
-    app = create_app()
-
-    app.dependency_overrides[get_db_dependency] = lambda: db_session
-    app.dependency_overrides[get_optional_user_dependency] = lambda: None
+    application = create_app()
+    application.dependency_overrides[get_db_dependency] = lambda: db_session
+    application.dependency_overrides[get_optional_user_dependency] = lambda: None
 
     async with AsyncClient(
-        transport=ASGITransport(app=app),
+        transport=ASGITransport(app=application),
         base_url="http://test",
     ) as ac:
         yield ac

@@ -17,7 +17,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 tokens = JWTTokenProvider(settings)
 
 
-@router.get("/{provider}/callback", response_model=TokenResponse)
+@router.get("/{provider}/callback")
 async def oauth_callback(
     provider: OAuthProviderName,
     db: DBSessionDependency,
@@ -50,7 +50,7 @@ async def oauth_callback(
     return TokenResponse(**tokens.create_token_pair(user.id, user.name))
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh")
 async def refresh_token(body: RefreshRequest, db: DBSessionDependency) -> TokenResponse:
     payload = tokens.decode_token(body.refresh_token, "refresh")
     user = await db.get(User, payload["sub"])

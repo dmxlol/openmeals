@@ -1,6 +1,7 @@
 from pydantic import Field
 
-from libs.schemes import BaseSchema, IdSchema, NamedSchema, TimestampSchema
+from core.config import settings
+from libs.schemes import BaseSchema, IdSchema, ImageMixin, NamedSchema, TimestampSchema
 
 
 class DrinkBase(NamedSchema):
@@ -24,7 +25,8 @@ class DrinkUpdate(BaseSchema):
     nutrients: dict[str, float] | None = None
 
 
-class DrinkResponse(TimestampSchema, IdSchema, DrinkBase):
+class DrinkResponse(ImageMixin, TimestampSchema, IdSchema, DrinkBase):
+    cdn_base_url: str | None = Field(default=settings.s3.cdn_base_url, exclude=True)
     creator_id: str | None = None
     curated: bool | None = None
 

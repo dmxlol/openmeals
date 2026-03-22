@@ -1,0 +1,67 @@
+import typing as t
+from functools import lru_cache
+
+import boto3
+
+if t.TYPE_CHECKING:
+    from mypy_boto3_s3 import S3ServiceResource
+    from mypy_boto3_s3.service_resource import Bucket
+
+CONTENT_TYPE_EXT: dict[str, str] = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+}
+
+
+@lru_cache(maxsize=1)
+def get_s3_resource() -> "S3ServiceResource":
+    return boto3.resource("s3")
+
+
+def ext_from_content_type(content_type: str) -> str:
+    ext = CONTENT_TYPE_EXT.get(content_type)
+    if ext is None:
+        msg = f"Unsupported content type: {content_type}"
+        raise ValueError(msg)
+    return ext
+
+
+def generate_presigned_put_url(
+    bucket: "Bucket",
+    key: str,
+    content_type: str,
+    expiry: int,
+) -> str:
+    return bucket.meta.client.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": bucket.name, "Key": key, "ContentType": content_type},
+        ExpiresIn=expiry,
+    )
+
+
+def download_file(bucket: "Bucket", key: str) -> bytes:
+    response = bucket.Object(key).get()
+    return response["Body"].read()
+
+
+def upload_file(
+    bucket: "Bucket",
+    key: str,
+    body: bytes,
+    content_type: str,
+    cache_control: str | None = None,
+) -> None:
+    params: dict[str, t.Any] = {
+        "Key": key,
+        "Body": body,
+        "ContentType": content_type,
+    }
+    if cache_control:
+        params["CacheControl"] = cache_control
+    bucket.put_object(**params)
+
+
+def delete_file(bucket: "Bucket", key: str) -> None:
+    bucket.Object(key).delete()
