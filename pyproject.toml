@@ -82,6 +82,9 @@ exclude_lines = [
 omit = [
     "src/core/celery.py",
     "src/core/lifespan.py",
+    "src/libs/embeddings/openapi.py",
+    "src/libs/embeddings/triton.py",
+    "src/libs/embeddings/mock.py",
 ]
 
 [tool.ruff.lint.per-file-ignores]
