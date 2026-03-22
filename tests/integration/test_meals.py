@@ -76,9 +76,7 @@ class TestGetMeal:
         assert data["foods"] == []
         assert data["drinks"] == []
 
-    async def test_get_with_foods_and_drinks(
-        self, client: AsyncClient, meal: Meal, food: Food, drink: Drink
-    ):
+    async def test_get_with_foods_and_drinks(self, client: AsyncClient, meal: Meal, food: Food, drink: Drink):
         await client.post(f"/api/v1/meals/{meal.id}/foods", json={"foodId": food.id, "amount": 100.0})
         await client.post(f"/api/v1/meals/{meal.id}/drinks", json={"drinkId": drink.id, "amount": 250.0})
 
@@ -87,9 +85,11 @@ class TestGetMeal:
         data = resp.json()
         assert len(data["foods"]) == 1
         assert data["foods"][0]["foodId"] == food.id
+        assert data["foods"][0]["foodName"] == food.name
         assert data["foods"][0]["amount"] == 100.0
         assert len(data["drinks"]) == 1
         assert data["drinks"][0]["drinkId"] == drink.id
+        assert data["drinks"][0]["drinkName"] == drink.name
         assert data["drinks"][0]["amount"] == 250.0
 
     async def test_cannot_get_other_users_meal(self, client: AsyncClient, db_session: AsyncSession):

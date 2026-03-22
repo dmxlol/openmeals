@@ -52,6 +52,7 @@ dev = [
     "ruff",
     "ipython",
     "polyfactory",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.uv.sources]
@@ -72,6 +73,21 @@ select = ["E", "F", "I", "UP", "FAST", "S", "C4","T20", "PTH", "I", "N", "PERF",
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 pythonpath = ["src"]
+addopts = "--cov=src --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if t.TYPE_CHECKING:",
+    "if __name__ == .__main__.",
+]
+omit = [
+    "src/core/celery.py",
+    "src/core/lifespan.py",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S"]

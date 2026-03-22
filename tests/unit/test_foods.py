@@ -1,14 +1,158 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
+from fastapi import FastAPI
 from httpx import AsyncClient
 from starlette import status
+from ulid import ULID
+
+from libs.datetime import utcnow
+from modules.foods.dependencies import get_food_dependency, get_writable_food_dependency
+from modules.foods.models import Food
 
 
-async def test_list_foods(client: AsyncClient, mock_db: AsyncMock) -> None:
-    mock_result = MagicMock()
-    mock_result.scalars.return_value.all.return_value = []
-    mock_db.execute.return_value = mock_result
+def _make_food(**overrides) -> Food:
+    defaults = {
+        "id": str(ULID()),
+        "name": "Test Food",
+        "proteins": 10.0,
+        "carbs": 20.0,
+        "fats": 5.0,
+        "fibers": 3.0,
+        "sugars": 2.0,
+        "energy": 150.0,
+        "glycemic_index": 50.0,
+        "vitamins": {},
+        "minerals": {},
+        "nutrients": {},
+        "creator_id": None,
+        "curated": None,
+        "embedding": None,
+        "created": utcnow(),
+        "updated": utcnow(),
+    }
+    defaults.update(overrides)
+    return Food(**defaults)
 
-    response = await client.get("/foods/")
+
+async def test_list_foods_empty(client: AsyncClient, mock_db: AsyncMock) -> None:
+    count_result = MagicMock()
+    count_result.scalar_one.return_value = 0
+    items_result = MagicMock()
+    items_result.scalars.return_value.all.return_value = []
+    mock_db.execute.side_effect = [count_result, items_result]
+
+    response = await client.get("/api/v1/foods")
     assert response.status_code == status.HTTP_200_OK
-    assert response.json() == []
+    data = response.json()
+    assert data["items"] == []
+    assert data["total"] == 0
+    assert data["nextCursor"] is None
+
+
+async def test_list_foods_with_items(client: AsyncClient, mock_db: AsyncMock) -> None:
+    food = _make_food()
+    count_result = MagicMock()
+    count_result.scalar_one.return_value = 1
+    items_result = MagicMock()
+    items_result.scalars.return_value.all.return_value = [food]
+    mock_db.execute.side_effect = [count_result, items_result]
+
+    response = await client.get("/api/v1/foods")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["name"] == "Test Food"
+    assert data["items"][0]["proteins"] == 10.0
+
+
+async def test_get_food(client: AsyncClient, app: FastAPI) -> None:
+    food = _make_food()
+    app.dependency_overrides[get_food_dependency] = lambda: food
+
+    response = await client.get(f"/api/v1/foods/{food.id}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["name"] == "Test Food"
+    assert data["proteins"] == 10.0
+    assert data["id"] == str(food.id)
+
+
+async def test_get_food_with_jsonb(client: AsyncClient, app: FastAPI) -> None:
+    food = _make_food(vitamins={"A": 100.0, "C": 50.0}, minerals={"iron": 8.0})
+    app.dependency_overrides[get_food_dependency] = lambda: food
+
+    response = await client.get(f"/api/v1/foods/{food.id}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["vitamins"] == {"A": 100.0, "C": 50.0}
+    assert data["minerals"] == {"iron": 8.0}
+
+
+async def test_create_food(client: AsyncClient, mock_db: AsyncMock) -> None:
+    body = {
+        "name": "New Food",
+        "proteins": 5.0,
+        "carbs": 10.0,
+        "fats": 2.0,
+        "fibers": 1.0,
+        "sugars": 0.5,
+        "energy": 80.0,
+        "glycemicIndex": 30.0,
+    }
+    with patch("modules.foods.handlers.generate_food_embedding"):
+        response = await client.post("/api/v1/foods", json=body)
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert data["name"] == "New Food"
+    assert data["proteins"] == 5.0
+    assert data["id"] is not None
+    mock_db.add.assert_called_once()
+    mock_db.commit.assert_awaited_once()
+
+
+async def test_update_food(client: AsyncClient, app: FastAPI, mock_db: AsyncMock) -> None:
+    food = _make_food()
+    app.dependency_overrides[get_writable_food_dependency] = lambda: food
+
+    with patch("modules.foods.handlers.generate_food_embedding"):
+        response = await client.patch(f"/api/v1/foods/{food.id}", json={"name": "Updated"})
+    assert response.status_code == status.HTTP_200_OK
+    assert food.name == "Updated"
+    mock_db.commit.assert_awaited_once()
+
+
+async def test_delete_food(client: AsyncClient, app: FastAPI, mock_db: AsyncMock) -> None:
+    food = _make_food()
+    app.dependency_overrides[get_writable_food_dependency] = lambda: food
+
+    response = await client.delete(f"/api/v1/foods/{food.id}")
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    mock_db.delete.assert_awaited_once_with(food)
+    mock_db.commit.assert_awaited_once()
+
+
+async def test_list_foods_requires_no_auth(anon_client: AsyncClient, mock_db: AsyncMock) -> None:
+    count_result = MagicMock()
+    count_result.scalar_one.return_value = 0
+    items_result = MagicMock()
+    items_result.scalars.return_value.all.return_value = []
+    mock_db.execute.side_effect = [count_result, items_result]
+
+    response = await anon_client.get("/api/v1/foods")
+    assert response.status_code == status.HTTP_200_OK
+
+
+async def test_create_food_requires_auth(anon_client: AsyncClient) -> None:
+    body = {
+        "name": "X",
+        "proteins": 1,
+        "carbs": 1,
+        "fats": 1,
+        "fibers": 1,
+        "sugars": 1,
+        "energy": 1,
+        "glycemicIndex": 1,
+    }
+    response = await anon_client.post("/api/v1/foods", json=body)
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED

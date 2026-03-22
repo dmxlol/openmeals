@@ -5,6 +5,8 @@ from starlette import status
 from core.schemes import CursorPage
 from libs.pagination import PaginationDependency, paginate
 from libs.types import DBSessionDependency
+from modules.drinks.models import Drink
+from modules.foods.models import Food
 from modules.meals.dependencies import MealDependency, MealDrinkDependency, MealFoodDependency
 from modules.meals.models import Meal, MealDrink, MealFood
 from modules.meals.schemes import (
@@ -39,16 +41,28 @@ async def get_meal(
     meal: MealDependency,
 ) -> MealResponse:
     foods_result = await db.execute(
-        select(MealFood).where(MealFood.meal_id == meal.id, MealFood.user_id == meal.user_id)
+        select(MealFood, Food.name.label("food_name"))
+        .join(Food, MealFood.food_id == Food.id)
+        .where(MealFood.meal_id == meal.id, MealFood.user_id == meal.user_id)
     )
     drinks_result = await db.execute(
-        select(MealDrink).where(MealDrink.meal_id == meal.id, MealDrink.user_id == meal.user_id)
+        select(MealDrink, Drink.name.label("drink_name"))
+        .join(Drink, MealDrink.drink_id == Drink.id)
+        .where(MealDrink.meal_id == meal.id, MealDrink.user_id == meal.user_id)
     )
+    foods = [
+        {**{c.key: getattr(row.MealFood, c.key) for c in MealFood.__table__.columns}, "food_name": row.food_name}
+        for row in foods_result.all()
+    ]
+    drinks = [
+        {**{c.key: getattr(row.MealDrink, c.key) for c in MealDrink.__table__.columns}, "drink_name": row.drink_name}
+        for row in drinks_result.all()
+    ]
     return MealResponse.model_validate(
         {
             **{c.key: getattr(meal, c.key) for c in meal.__table__.columns},
-            "foods": list(foods_result.scalars().all()),
-            "drinks": list(drinks_result.scalars().all()),
+            "foods": foods,
+            "drinks": drinks,
         },
     )
 

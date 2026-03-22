@@ -1,6 +1,6 @@
 export PYTHONPATH := src
 
-.PHONY: install install-dev run worker script download-model format lint test test-unit test-integration migrate migration db
+.PHONY: install install-dev run worker script download-model format lint test test-unit test-integration coverage migrate migration db
 
 install:
 	uv sync
@@ -35,6 +35,10 @@ test-unit:
 
 test-integration:
 	uv run pytest tests/integration/ -v
+
+coverage:
+	uv run pytest tests/ -v --cov-report=html --cov-report=term-missing
+	@echo "HTML report: htmlcov/index.html"
 
 migrate:
 	uv run alembic upgrade head

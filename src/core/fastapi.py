@@ -8,6 +8,7 @@ from starlette.responses import Response
 
 from core.database import get_async_session_factory
 from core.lifespan import lifespan
+from core.telemetry import instrument_app
 from libs.app import AppRegistry
 from utils.fastapi import register_exception_handlers
 
@@ -43,8 +44,6 @@ def create_app() -> FastAPI:
     )
 
     register_exception_handlers(app)
-
-    from core.telemetry import instrument_app
 
     instrument_app(app, settings.otel)
 

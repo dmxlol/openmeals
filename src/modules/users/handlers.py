@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from sqlalchemy import select
 from starlette import status
 
 from libs.types import DBSessionDependency
@@ -32,14 +33,20 @@ async def get_my_profile(
     return profile
 
 
-@router.patch("/me/profile", response_model=UserProfileResponse)
-async def update_my_profile(
+@router.put("/me/profile", response_model=UserProfileResponse)
+async def upsert_my_profile(
     body: UserProfileUpdate,
     db: DBSessionDependency,
-    profile: CurrentUserProfileDependency,
+    user: CurrentUserDependency,
 ) -> UserProfile:
-    for key, value in body.model_dump(exclude_unset=True).items():
-        setattr(profile, key, value)
+    result = await db.execute(select(UserProfile).where(UserProfile.user_id == user.id))
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        profile = UserProfile(user_id=user.id, **body.model_dump())
+        db.add(profile)
+    else:
+        for key, value in body.model_dump().items():
+            setattr(profile, key, value)
     await db.commit()
     await db.refresh(profile)
     return profile
