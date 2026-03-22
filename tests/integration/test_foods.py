@@ -188,6 +188,7 @@ class TestUploadFoodImage:
         manager = MagicMock()
         manager.generate_upload_url.return_value = UploadResultDto(
             upload_url="https://s3.example.com/presigned",
+            upload_fields={"key": "raw/foods/test/abc.jpg", "Content-Type": "image/jpeg"},
             raw_key="raw/foods/test/abc.jpg",
         )
         return manager

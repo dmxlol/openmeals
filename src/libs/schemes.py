@@ -55,3 +55,4 @@ class ImageMixin(BaseSchema):
 
 class ImageUploadResponse(BaseSchema):
     upload_url: str
+    upload_fields: dict

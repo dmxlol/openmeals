@@ -24,6 +24,10 @@ def embed_text(text: str) -> list[float]:
 def process_image_file(bucket: "Bucket", raw_key: str, entity_type: str, entity_id: str) -> str:
     raw_bytes = download_file(bucket, raw_key)
     logging.info("Downloaded object from %s at %s (%d bytes)", bucket, raw_key, len(raw_bytes))
+    if len(raw_bytes) > settings.s3.image_max_upload_bytes:
+        delete_file(bucket, raw_key)
+        msg = f"Image at {raw_key} exceeds max upload size ({len(raw_bytes)} bytes) — raw file deleted"
+        raise ValueError(msg)
     try:
         img = Image.open(BytesIO(raw_bytes))
     except Image.UnidentifiedImageError as e:

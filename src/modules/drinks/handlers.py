@@ -9,7 +9,7 @@ from starlette import status
 from core.config import settings
 from core.schemes import CursorPage
 from libs.db import ingestible_visible_filter
-from libs.exceptions import TimeoutError
+from libs.exceptions import ConflictError, TimeoutError
 from libs.pagination import PaginationDependency, paginate
 from libs.schemes import ImageUploadResponse
 from libs.types import DBSessionDependency
@@ -18,7 +18,7 @@ from modules.drinks.models import Drink
 from modules.drinks.schemes import DrinkCreate, DrinkResponse, DrinkSearchResult, DrinkUpdate
 from modules.drinks.tasks import generate_drink_embedding, process_drink_image
 from modules.users.dependencies import CurrentUserDependency, OptionalUserDependency
-from services.image import ImageManagerDependency
+from services.image import ImageContentType, ImageManagerDependency
 from services.tasks import embed_text
 
 router = APIRouter(prefix="/drinks", tags=["drinks"])
@@ -117,8 +117,10 @@ async def upload_drink_image(
     drink: WritableDrinkDependency,
     db: DBSessionDependency,
     image_manager: ImageManagerDependency,
-    content_type: t.Annotated[str, Query(pattern=r"^image/(jpeg|png|webp|gif)$")],
+    content_type: t.Annotated[ImageContentType, Query()],
 ) -> ImageUploadResponse:
+    if drink.image_key and drink.image_key.startswith("raw/"):
+        raise ConflictError("Image upload already in progress")
     result = image_manager.generate_upload_url(
         entity_type=Drink.__tablename__,
         entity_id=str(drink.id),
@@ -130,4 +132,4 @@ async def upload_drink_image(
         args=(str(drink.id), result.raw_key),
         countdown=settings.s3.image_upload_countdown,
     )
-    return ImageUploadResponse(upload_url=result.upload_url)
+    return ImageUploadResponse(upload_url=result.upload_url, upload_fields=result.upload_fields)

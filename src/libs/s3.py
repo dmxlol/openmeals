@@ -29,17 +29,24 @@ def ext_from_content_type(content_type: str) -> str:
     return ext
 
 
-def generate_presigned_put_url(
+def generate_presigned_post(
     bucket: "Bucket",
     key: str,
     content_type: str,
+    max_bytes: int,
     expiry: int,
-) -> str:
-    return bucket.meta.client.generate_presigned_url(
-        "put_object",
-        Params={"Bucket": bucket.name, "Key": key, "ContentType": content_type},
+) -> tuple[str, dict]:
+    result = bucket.meta.client.generate_presigned_post(
+        Bucket=bucket.name,
+        Key=key,
+        Fields={"Content-Type": content_type},
+        Conditions=[
+            {"Content-Type": content_type},
+            ["content-length-range", 1, max_bytes],
+        ],
         ExpiresIn=expiry,
     )
+    return result["url"], result["fields"]
 
 
 def download_file(bucket: "Bucket", key: str) -> bytes:

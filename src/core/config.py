@@ -28,6 +28,7 @@ class S3Settings(BaseSettings):
     image_max_dimension: int = 1200
     image_webp_quality: int = 85
     image_cache_max_age: int = 31536000
+    image_max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
     image_upload_countdown: int = 10
     image_retry_countdown: int = 15
     image_max_retries: int = 20

@@ -125,6 +125,7 @@ async def test_upload_drink_image(client: AsyncClient, app: FastAPI, mock_db: As
     mock_manager = MagicMock()
     mock_manager.generate_upload_url.return_value = UploadResultDto(
         upload_url="https://s3.example.com/presigned",
+        upload_fields={"key": "raw/drinks/abc/def.jpg", "Content-Type": "image/jpeg"},
         raw_key="raw/drinks/abc/def.jpg",
     )
     app.dependency_overrides[get_image_manager] = lambda: mock_manager
