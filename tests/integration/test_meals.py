@@ -71,7 +71,26 @@ class TestGetMeal:
     async def test_get_own(self, client: AsyncClient, meal: Meal):
         resp = await client.get(f"/api/v1/meals/{meal.id}")
         assert resp.status_code == 200
-        assert resp.json()["id"] == meal.id
+        data = resp.json()
+        assert data["id"] == meal.id
+        assert data["foods"] == []
+        assert data["drinks"] == []
+
+    async def test_get_with_foods_and_drinks(
+        self, client: AsyncClient, meal: Meal, food: Food, drink: Drink
+    ):
+        await client.post(f"/api/v1/meals/{meal.id}/foods", json={"foodId": food.id, "amount": 100.0})
+        await client.post(f"/api/v1/meals/{meal.id}/drinks", json={"drinkId": drink.id, "amount": 250.0})
+
+        resp = await client.get(f"/api/v1/meals/{meal.id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["foods"]) == 1
+        assert data["foods"][0]["foodId"] == food.id
+        assert data["foods"][0]["amount"] == 100.0
+        assert len(data["drinks"]) == 1
+        assert data["drinks"][0]["drinkId"] == drink.id
+        assert data["drinks"][0]["amount"] == 250.0
 
     async def test_cannot_get_other_users_meal(self, client: AsyncClient, db_session: AsyncSession):
         other = UserFactory.build()

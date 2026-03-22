@@ -12,6 +12,8 @@ class MealUpdate(BaseSchema):
 
 class MealResponse(TimestampSchema, NamedIdSchema):
     user_id: ULIDStr
+    foods: list["MealFoodResponse"] = []
+    drinks: list["MealDrinkResponse"] = []
 
 
 class MealFoodCreate(BaseSchema):

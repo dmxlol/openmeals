@@ -5,7 +5,7 @@ from libs.types import ULIDStr
 
 
 class UserResponse(IdSchema, CreatedSchema):
-    pass
+    name: str
 
 
 class UserProfileBase(BaseSchema):

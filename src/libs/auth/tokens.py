@@ -19,9 +19,9 @@ class TokenPair(t.TypedDict):
 
 
 class TokenProvider(t.Protocol):
-    def create_access_token(self, sub: str) -> str: ...
-    def create_refresh_token(self, sub: str) -> str: ...
-    def create_token_pair(self, sub: str) -> TokenPair: ...
+    def create_access_token(self, sub: str, name: str) -> str: ...
+    def create_refresh_token(self, sub: str, name: str) -> str: ...
+    def create_token_pair(self, sub: str, name: str) -> TokenPair: ...
     def decode_token(self, token: str, expected_type: str) -> dict: ...
 
 
@@ -36,10 +36,11 @@ class JWTTokenProvider:
         self._access_ttl = timedelta(minutes=settings.access_token_expire_minutes)
         self._refresh_ttl = timedelta(days=settings.refresh_token_expire_days)
 
-    def _token_factory(self, sub: str, type_: t.Literal["access", "refresh"]) -> dict:
+    def _token_factory(self, sub: str, name: str, type_: t.Literal["access", "refresh"]) -> dict:
         now = utcnow()
         return {
             "sub": sub,
+            "name": name,
             "type": type_,
             "iss": ISS,
             "aud": AUD,
@@ -48,16 +49,16 @@ class JWTTokenProvider:
             "jti": secrets.token_urlsafe(16),
         }
 
-    def create_access_token(self, sub: str) -> str:
-        return self._encode(self._token_factory(sub, "access"))
+    def create_access_token(self, sub: str, name: str) -> str:
+        return self._encode(self._token_factory(sub, name, "access"))
 
-    def create_refresh_token(self, sub: str) -> str:
-        return self._encode(self._token_factory(sub, "refresh"))
+    def create_refresh_token(self, sub: str, name: str) -> str:
+        return self._encode(self._token_factory(sub, name, "refresh"))
 
-    def create_token_pair(self, sub: str) -> TokenPair:
+    def create_token_pair(self, sub: str, name: str) -> TokenPair:
         return {
-            "access_token": self.create_access_token(sub),
-            "refresh_token": self.create_refresh_token(sub),
+            "access_token": self.create_access_token(sub, name),
+            "refresh_token": self.create_refresh_token(sub, name),
             "token_type": "bearer",
         }
 

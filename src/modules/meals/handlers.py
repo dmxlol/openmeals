@@ -33,11 +33,24 @@ async def list_meals(
     return await paginate(db, stmt, Meal, pagination)
 
 
-@router.get("/{meal_id}", response_model=MealResponse)
+@router.get("/{meal_id}")
 async def get_meal(
+    db: DBSessionDependency,
     meal: MealDependency,
-) -> Meal:
-    return meal
+) -> MealResponse:
+    foods_result = await db.execute(
+        select(MealFood).where(MealFood.meal_id == meal.id, MealFood.user_id == meal.user_id)
+    )
+    drinks_result = await db.execute(
+        select(MealDrink).where(MealDrink.meal_id == meal.id, MealDrink.user_id == meal.user_id)
+    )
+    return MealResponse.model_validate(
+        {
+            **{c.key: getattr(meal, c.key) for c in meal.__table__.columns},
+            "foods": list(foods_result.scalars().all()),
+            "drinks": list(drinks_result.scalars().all()),
+        },
+    )
 
 
 @router.post("", response_model=MealResponse, status_code=status.HTTP_201_CREATED)

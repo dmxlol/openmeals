@@ -7,6 +7,7 @@ from starlette import status
 from core.config import settings
 from libs.auth import JWTTokenProvider, get_provider
 from libs.auth.providers import OAuthProviderName
+from libs.exceptions import UnauthorizedError
 from libs.types import DBSessionDependency
 from modules.auth.models import UserOAuth
 from modules.auth.schemes import RefreshRequest, TokenResponse
@@ -31,7 +32,7 @@ async def oauth_callback(
     user_oauth = result.scalar_one_or_none()
 
     if user_oauth is None:
-        user = User()
+        user = User(name=claims["name"])
         db.add(user)
         await db.flush()
 
@@ -46,13 +47,16 @@ async def oauth_callback(
     else:
         user = await db.get(User, user_oauth.user_id)
 
-    return TokenResponse(**tokens.create_token_pair(user.id))
+    return TokenResponse(**tokens.create_token_pair(user.id, user.name))
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(body: RefreshRequest) -> TokenResponse:
+async def refresh_token(body: RefreshRequest, db: DBSessionDependency) -> TokenResponse:
     payload = tokens.decode_token(body.refresh_token, "refresh")
-    return TokenResponse(**tokens.create_token_pair(payload["sub"]))
+    user = await db.get(User, payload["sub"])
+    if user is None:
+        raise UnauthorizedError
+    return TokenResponse(**tokens.create_token_pair(user.id, user.name))
 
 
 @router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)

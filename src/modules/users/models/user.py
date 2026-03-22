@@ -9,6 +9,7 @@ from libs.models import ULIDPKMixin
 class User(ULIDPKMixin, SQLModel, table=True):
     __tablename__ = "users"
 
+    name: str
     created: AwareDatetime = Field(
         sa_type=DateTime(timezone=True),
         default_factory=utcnow,
