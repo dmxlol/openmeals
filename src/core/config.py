@@ -13,6 +13,13 @@ class CelerySettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="CELERY_")
 
 
+class OtelSettings(BaseSettings):
+    enabled: bool = False
+    service_name: str = "openmeals"
+
+    model_config = SettingsConfigDict(env_prefix="OTEL_")
+
+
 class EmbeddingSettings(BaseSettings):
     provider: t.Literal["sentence-transformers", "triton", "openai", "mock"] = "sentence-transformers"
     model: str = "intfloat/multilingual-e5-base"
@@ -46,6 +53,7 @@ class Settings(BaseSettings):
     aws_region: str = "eu-central-1"
 
     embedding: "EmbeddingSettings" = EmbeddingSettings()
+    otel: OtelSettings = OtelSettings()
 
     model_config = SettingsConfigDict(extra="ignore")
 

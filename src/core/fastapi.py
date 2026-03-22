@@ -6,7 +6,7 @@ from sqlalchemy import text
 from starlette import status
 from starlette.responses import Response
 
-from core.database import AsyncSessionLocal
+from core.database import get_async_session_factory
 from core.lifespan import lifespan
 from libs.app import AppRegistry
 from utils.fastapi import register_exception_handlers
@@ -16,7 +16,7 @@ from .config import settings
 
 async def healthcheck() -> Response:
     try:
-        async with AsyncSessionLocal() as session:
+        async with get_async_session_factory()() as session:
             await session.execute(text("SELECT 1"))
         return Response(status_code=status.HTTP_200_OK)
     except Exception:
@@ -43,6 +43,10 @@ def create_app() -> FastAPI:
     )
 
     register_exception_handlers(app)
+
+    from core.telemetry import instrument_app
+
+    instrument_app(app, settings.otel)
 
     app.add_api_route("/health", healthcheck, methods=["GET"], include_in_schema=False)
 

@@ -5,16 +5,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy import text
 
-from core.database import AsyncSessionLocal, engine
+from core.database import get_async_engine, get_async_session_factory
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> t.AsyncIterator[None]:
-    async with AsyncSessionLocal() as session:
+    async with get_async_session_factory()() as session:
         await session.execute(text("SELECT 1"))
     logger.info("Database connection verified")
     yield
-    await engine.dispose()
+    await get_async_engine().dispose()
     logger.info("Database engine disposed")

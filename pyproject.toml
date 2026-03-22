@@ -31,6 +31,18 @@ dependencies = [
 
     # task queue
     "celery[redis]~=5.4.0",
+
+    # ml-depedencies. in default for simplicity, but must be used only in worker scope.
+    "torch",
+    "sentence-transformers~=4.0.0",
+
+    # observability
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "opentelemetry-instrumentation-fastapi",
+    "opentelemetry-instrumentation-sqlalchemy",
+    "opentelemetry-instrumentation-celery",
+    "opentelemetry-instrumentation-httpx",
 ]
 
 [dependency-groups]
@@ -40,10 +52,6 @@ dev = [
     "ruff",
     "ipython",
     "polyfactory",
-]
-ml = [
-    "torch",
-    "sentence-transformers~=4.0.0",
 ]
 
 [tool.uv.sources]
