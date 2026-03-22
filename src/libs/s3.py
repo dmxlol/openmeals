@@ -1,3 +1,4 @@
+import logging
 import typing as t
 from functools import lru_cache
 
@@ -43,7 +44,9 @@ def generate_presigned_put_url(
 
 def download_file(bucket: "Bucket", key: str) -> bytes:
     response = bucket.Object(key).get()
-    return response["Body"].read()
+    b = response["Body"].read()
+    logging.info(f"File {key} downloaded from bucket {bucket.name}")
+    return b
 
 
 def upload_file(
@@ -61,7 +64,9 @@ def upload_file(
     if cache_control:
         params["CacheControl"] = cache_control
     bucket.put_object(**params)
+    logging.info(f"File {key} uploaded to bucket {bucket.name}")
 
 
 def delete_file(bucket: "Bucket", key: str) -> None:
     bucket.Object(key).delete()
+    logging.info(f"File {key} deleted from bucket {bucket.name}")
