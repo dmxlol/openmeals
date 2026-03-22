@@ -15,5 +15,17 @@ services:
     ports:
       - "6379:6379"
 
+  localstack:
+    image: localstack/localstack:4
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3
+      DEFAULT_REGION: eu-central-1
+    volumes:
+      - ./scripts/localstack_init.sh:/etc/localstack/init/ready.d/init.sh:ro
+      - localstack_data:/var/lib/localstack
+
 volumes:
   postgres_data:
+  localstack_data:
