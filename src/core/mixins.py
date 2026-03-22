@@ -13,5 +13,5 @@ class IngestibleMixin(ULIDPKMixin, TimestampMixin, SQLModel):
     nutrients: dict = Field(sa_type=JSONB, default_factory=dict)
     creator_id: str | None = ULIDField(default=None)
     curated: bool | None = None
-    image_key: str | None = Field(default=None, max_length=512)
+    image_key: str = Field(max_length=512)
     embedding: list[float] | None = Field(default=None, sa_type=Vector(settings.embedding.dimension))
