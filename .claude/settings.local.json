@@ -27,16 +27,17 @@
       "Bash(git status:*)",
       "Bash(git stash:*)",
       "Bash(make format:*)",
-      "Bash(make lint:*)"
+      "Bash(make lint:*)",
+      "Bash(make test:*)"
     ],
     "deny": [
-        "Bash(rm -rf:*)",
-        "Bash(rm -r:*)",
-        "Bash(git push:*)",
-        "Bash(git reset:*)",
-        "Bash(chmod:*)",
-        "Bash(chown:*)",
-        "Bash(sudo:*)"
-      ]
+      "Bash(rm -rf:*)",
+      "Bash(rm -r:*)",
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(chmod:*)",
+      "Bash(chown:*)",
+      "Bash(sudo:*)"
+    ]
   }
 }
