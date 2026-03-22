@@ -4,13 +4,13 @@ from fastapi import Depends
 from sqlalchemy import select
 
 from libs.db import fetch_one_or_raise
-from libs.types import DBSessionDependency
+from libs.types import DBSessionDependency, ULIDStr
 from modules.meals.models import Meal, MealDrink, MealFood
 from modules.users.dependencies import CurrentUserDependency
 
 
 async def get_meal_dependency(
-    meal_id: str,
+    meal_id: ULIDStr,
     db: DBSessionDependency,
     user: CurrentUserDependency,
 ) -> Meal:
@@ -18,8 +18,8 @@ async def get_meal_dependency(
 
 
 async def get_meal_food_dependency(
-    meal_id: str,
-    food_id: str,
+    meal_id: ULIDStr,
+    food_id: ULIDStr,
     db: DBSessionDependency,
     user: CurrentUserDependency,
 ) -> MealFood:
@@ -30,8 +30,8 @@ async def get_meal_food_dependency(
 
 
 async def get_meal_drink_dependency(
-    meal_id: str,
-    drink_id: str,
+    meal_id: ULIDStr,
+    drink_id: ULIDStr,
     db: DBSessionDependency,
     user: CurrentUserDependency,
 ) -> MealDrink:

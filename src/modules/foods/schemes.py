@@ -2,6 +2,7 @@ from pydantic import Field
 
 from core.config import settings
 from libs.schemes import BaseSchema, IdSchema, ImageMixin, NamedSchema, TimestampSchema
+from libs.types import ULIDStr
 
 
 class FoodBase(NamedSchema):
@@ -37,7 +38,7 @@ class FoodUpdate(BaseSchema):
 
 class FoodResponse(ImageMixin, TimestampSchema, IdSchema, FoodBase):
     cdn_base_url: str = Field(default=settings.s3.cdn_base_url, exclude=True)
-    creator_id: str | None = None
+    creator_id: ULIDStr | None = None
     curated: bool | None = None
 
 

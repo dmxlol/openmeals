@@ -4,13 +4,13 @@ from fastapi import Depends
 from sqlalchemy import select
 
 from libs.db import check_ingestible_writable, fetch_one_or_raise, ingestible_visible_filter
-from libs.types import DBSessionDependency
+from libs.types import DBSessionDependency, ULIDStr
 from modules.foods.models import Food
 from modules.users.dependencies import CurrentUserDependency, OptionalUserDependency
 
 
 async def get_food_dependency(
-    food_id: str,
+    food_id: ULIDStr,
     db: DBSessionDependency,
     user: OptionalUserDependency,
 ) -> Food:
@@ -18,7 +18,7 @@ async def get_food_dependency(
 
 
 async def get_writable_food_dependency(
-    food_id: str,
+    food_id: ULIDStr,
     db: DBSessionDependency,
     user: CurrentUserDependency,
 ) -> Food:

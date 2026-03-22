@@ -4,13 +4,13 @@ from fastapi import Depends
 from sqlalchemy import select
 
 from libs.db import check_ingestible_writable, fetch_one_or_raise, ingestible_visible_filter
-from libs.types import DBSessionDependency
+from libs.types import DBSessionDependency, ULIDStr
 from modules.drinks.models import Drink
 from modules.users.dependencies import CurrentUserDependency, OptionalUserDependency
 
 
 async def get_drink_dependency(
-    drink_id: str,
+    drink_id: ULIDStr,
     db: DBSessionDependency,
     user: OptionalUserDependency,
 ) -> Drink:
@@ -20,7 +20,7 @@ async def get_drink_dependency(
 
 
 async def get_writable_drink_dependency(
-    drink_id: str,
+    drink_id: ULIDStr,
     db: DBSessionDependency,
     user: CurrentUserDependency,
 ) -> Drink:
