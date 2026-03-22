@@ -8,6 +8,7 @@ The token can be used as the `code` parameter in:
 """
 
 import argparse
+import sys
 
 from core.config import settings
 from libs.auth.local import LocalProvider
@@ -21,4 +22,4 @@ if __name__ == "__main__":
 
     provider = LocalProvider()
     token = provider.encode({"sub": args.sub, "email": args.email, "name": args.name}, settings)
-    print(token)
+    sys.stdout.write(f"{token}\n")
