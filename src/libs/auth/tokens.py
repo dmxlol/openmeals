@@ -38,6 +38,7 @@ class JWTTokenProvider:
 
     def _token_factory(self, sub: str, name: str, type_: t.Literal["access", "refresh"]) -> dict:
         now = utcnow()
+        exp = now + (self._access_ttl if type_ == "access" else self._refresh_ttl)
         return {
             "sub": sub,
             "name": name,
@@ -45,7 +46,7 @@ class JWTTokenProvider:
             "iss": ISS,
             "aud": AUD,
             "iat": now,
-            "exp": now + self._access_ttl,
+            "exp": exp,
             "jti": secrets.token_urlsafe(16),
         }
 
