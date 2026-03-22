@@ -33,6 +33,11 @@ class UnauthorizedError(AppError):
     detail = "Unauthorized"
 
 
+class ConflictError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    detail = "Conflict"
+
+
 class TimeoutError(AppError):
     status_code = status.HTTP_408_REQUEST_TIMEOUT
     detail = "Request timeout"

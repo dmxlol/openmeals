@@ -1,8 +1,10 @@
 from fastapi import APIRouter
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from starlette import status
 
 from core.schemes import CursorPage
+from libs.exceptions import ConflictError
 from libs.pagination import PaginationDependency, paginate
 from libs.types import DBSessionDependency
 from modules.drinks.models import Drink
@@ -105,29 +107,37 @@ async def delete_meal(
 # --- Meal Foods ---
 
 
-@router.post("/{meal_id}/foods", response_model=MealFoodResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{meal_id}/foods", status_code=status.HTTP_201_CREATED)
 async def add_meal_food(
     body: MealFoodCreate,
     db: DBSessionDependency,
     meal: MealDependency,
-) -> MealFood:
+) -> MealFoodResponse:
     meal_food = MealFood(user_id=meal.user_id, meal_id=meal.id, **body.model_dump())
     db.add(meal_food)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        if getattr(e.orig, "sqlstate", None) == "23505":
+            raise ConflictError("Food is already in this meal") from e
+        raise
     await db.refresh(meal_food)
-    return meal_food
+    food = await db.get(Food, meal_food.food_id)
+    return MealFoodResponse(**meal_food.model_dump(), food_name=food.name)
 
 
-@router.patch("/{meal_id}/foods/{food_id}", response_model=MealFoodResponse)
+@router.patch("/{meal_id}/foods/{food_id}")
 async def update_meal_food(
     body: MealFoodUpdate,
     db: DBSessionDependency,
     meal_food: MealFoodDependency,
-) -> MealFood:
+) -> MealFoodResponse:
     meal_food.amount = body.amount
     await db.commit()
     await db.refresh(meal_food)
-    return meal_food
+    food = await db.get(Food, meal_food.food_id)
+    return MealFoodResponse(**meal_food.model_dump(), food_name=food.name)
 
 
 @router.delete("/{meal_id}/foods/{food_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -142,29 +152,37 @@ async def delete_meal_food(
 # --- Meal Drinks ---
 
 
-@router.post("/{meal_id}/drinks", response_model=MealDrinkResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{meal_id}/drinks", status_code=status.HTTP_201_CREATED)
 async def add_meal_drink(
     body: MealDrinkCreate,
     db: DBSessionDependency,
     meal: MealDependency,
-) -> MealDrink:
+) -> MealDrinkResponse:
     meal_drink = MealDrink(user_id=meal.user_id, meal_id=meal.id, **body.model_dump())
     db.add(meal_drink)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        if getattr(e.orig, "sqlstate", None) == "23505":
+            raise ConflictError("Drink is already in this meal") from e
+        raise
     await db.refresh(meal_drink)
-    return meal_drink
+    drink = await db.get(Drink, meal_drink.drink_id)
+    return MealDrinkResponse(**meal_drink.model_dump(), drink_name=drink.name)
 
 
-@router.patch("/{meal_id}/drinks/{drink_id}", response_model=MealDrinkResponse)
+@router.patch("/{meal_id}/drinks/{drink_id}")
 async def update_meal_drink(
     body: MealDrinkUpdate,
     db: DBSessionDependency,
     meal_drink: MealDrinkDependency,
-) -> MealDrink:
+) -> MealDrinkResponse:
     meal_drink.amount = body.amount
     await db.commit()
     await db.refresh(meal_drink)
-    return meal_drink
+    drink = await db.get(Drink, meal_drink.drink_id)
+    return MealDrinkResponse(**meal_drink.model_dump(), drink_name=drink.name)
 
 
 @router.delete("/{meal_id}/drinks/{drink_id}", status_code=status.HTTP_204_NO_CONTENT)

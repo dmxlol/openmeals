@@ -5,10 +5,9 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from libs.schemes import ImageUploadResponse
 from modules.drinks.models import Drink
 from modules.users.models import User
-from services.image import get_image_manager
+from services.image import UploadResultDto, get_image_manager
 from tests.factories import DrinkFactory, UserFactory
 
 
@@ -160,9 +159,9 @@ class TestUploadDrinkImage:
     @pytest.fixture
     def mock_image_manager(self):
         manager = MagicMock()
-        manager.generate_upload_url.return_value = ImageUploadResponse(
+        manager.generate_upload_url.return_value = UploadResultDto(
             upload_url="https://s3.example.com/presigned",
-            image_key="raw/drinks/test/abc.jpg",
+            raw_key="raw/drinks/test/abc.jpg",
         )
         return manager
 
@@ -175,7 +174,7 @@ class TestUploadDrinkImage:
         assert resp.status_code == 200
         data = resp.json()
         assert data["uploadUrl"] == "https://s3.example.com/presigned"
-        assert data["imageKey"] == "raw/drinks/test/abc.jpg"
+        assert "imageKey" not in data
 
     async def test_upload_sets_image_key_on_drink(
         self, client: AsyncClient, drink: Drink, db_session: AsyncSession, app, mock_image_manager

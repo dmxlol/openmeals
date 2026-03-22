@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi import FastAPI
 from httpx import AsyncClient
+from sqlalchemy.exc import IntegrityError
 from starlette import status
 from ulid import ULID
 
@@ -136,3 +137,69 @@ async def test_list_meals_requires_auth(anon_client: AsyncClient) -> None:
 async def test_create_meal_requires_auth(anon_client: AsyncClient) -> None:
     response = await anon_client.post("/api/v1/meals", json={"name": "X"})
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+async def test_add_food_to_meal(client: AsyncClient, app: FastAPI, mock_db: AsyncMock, mock_user: User) -> None:
+    meal = _make_meal(mock_user.id)
+    app.dependency_overrides[get_meal_dependency] = lambda: meal
+    food_id = str(ULID())
+    food_mock = MagicMock()
+    food_mock.name = "Banana"
+    mock_db.get.return_value = food_mock
+
+    response = await client.post(f"/api/v1/meals/{meal.id}/foods", json={"foodId": food_id, "amount": 150.0})
+
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert data["foodId"] == food_id
+    assert data["foodName"] == "Banana"
+    assert data["amount"] == 150.0
+    mock_db.add.assert_called_once()
+    mock_db.commit.assert_awaited_once()
+
+
+async def test_add_duplicate_food_returns_conflict(
+    client: AsyncClient, app: FastAPI, mock_db: AsyncMock, mock_user: User
+) -> None:
+    meal = _make_meal(mock_user.id)
+    app.dependency_overrides[get_meal_dependency] = lambda: meal
+    orig = MagicMock()
+    orig.sqlstate = "23505"
+    mock_db.commit.side_effect = IntegrityError("stmt", {}, orig)
+
+    response = await client.post(f"/api/v1/meals/{meal.id}/foods", json={"foodId": str(ULID()), "amount": 100.0})
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+
+
+async def test_add_drink_to_meal(client: AsyncClient, app: FastAPI, mock_db: AsyncMock, mock_user: User) -> None:
+    meal = _make_meal(mock_user.id)
+    app.dependency_overrides[get_meal_dependency] = lambda: meal
+    drink_id = str(ULID())
+    drink_mock = MagicMock()
+    drink_mock.name = "Green Tea"
+    mock_db.get.return_value = drink_mock
+
+    response = await client.post(f"/api/v1/meals/{meal.id}/drinks", json={"drinkId": drink_id, "amount": 250.0})
+
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert data["drinkId"] == drink_id
+    assert data["drinkName"] == "Green Tea"
+    assert data["amount"] == 250.0
+    mock_db.add.assert_called_once()
+    mock_db.commit.assert_awaited_once()
+
+
+async def test_add_duplicate_drink_returns_conflict(
+    client: AsyncClient, app: FastAPI, mock_db: AsyncMock, mock_user: User
+) -> None:
+    meal = _make_meal(mock_user.id)
+    app.dependency_overrides[get_meal_dependency] = lambda: meal
+    orig = MagicMock()
+    orig.sqlstate = "23505"
+    mock_db.commit.side_effect = IntegrityError("stmt", {}, orig)
+
+    response = await client.post(f"/api/v1/meals/{meal.id}/drinks", json={"drinkId": str(ULID()), "amount": 200.0})
+
+    assert response.status_code == status.HTTP_409_CONFLICT

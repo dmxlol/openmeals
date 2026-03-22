@@ -7,10 +7,9 @@ from ulid import ULID
 
 from core.config import settings
 from libs.datetime import utcnow
-from libs.schemes import ImageUploadResponse
 from modules.foods.dependencies import get_food_dependency, get_writable_food_dependency
 from modules.foods.models import Food
-from services.image import get_image_manager
+from services.image import UploadResultDto, get_image_manager
 
 
 def _make_food(**overrides) -> Food:
@@ -166,9 +165,9 @@ async def test_upload_food_image(client: AsyncClient, app: FastAPI, mock_db: Asy
     app.dependency_overrides[get_writable_food_dependency] = lambda: food
 
     mock_manager = MagicMock()
-    mock_manager.generate_upload_url.return_value = ImageUploadResponse(
+    mock_manager.generate_upload_url.return_value = UploadResultDto(
         upload_url="https://s3.example.com/presigned",
-        image_key="raw/foods/abc/def.jpg",
+        raw_key="raw/foods/abc/def.jpg",
     )
     app.dependency_overrides[get_image_manager] = lambda: mock_manager
 
@@ -178,7 +177,7 @@ async def test_upload_food_image(client: AsyncClient, app: FastAPI, mock_db: Asy
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["uploadUrl"] == "https://s3.example.com/presigned"
-    assert data["imageKey"] == "raw/foods/abc/def.jpg"
+    assert "imageKey" not in data
 
     mock_manager.generate_upload_url.assert_called_once_with(
         entity_type="foods",

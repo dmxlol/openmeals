@@ -124,10 +124,10 @@ async def upload_drink_image(
         entity_id=str(drink.id),
         content_type=content_type,
     )
-    drink.image_key = result.image_key
+    drink.image_key = result.raw_key
     await db.commit()
     process_drink_image.apply_async(
-        args=(str(drink.id), result.image_key),
+        args=(str(drink.id), result.raw_key),
         countdown=settings.s3.image_upload_countdown,
     )
-    return result
+    return ImageUploadResponse(upload_url=result.upload_url)

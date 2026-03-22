@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import typing as t
 from io import BytesIO
 
@@ -22,8 +23,13 @@ def embed_text(text: str) -> list[float]:
 
 def process_image_file(bucket: "Bucket", raw_key: str, entity_type: str, entity_id: str) -> str:
     raw_bytes = download_file(bucket, raw_key)
-
-    img = Image.open(BytesIO(raw_bytes))
+    logging.info("Downloaded object from %s at %s (%d bytes)", bucket, raw_key, len(raw_bytes))
+    try:
+        img = Image.open(BytesIO(raw_bytes))
+    except Image.UnidentifiedImageError as e:
+        delete_file(bucket, raw_key)
+        msg = f"Cannot identify image at {raw_key} ({len(raw_bytes)} bytes) — raw file deleted"
+        raise ValueError(msg) from e
     max_dim = settings.s3.image_max_dimension
     img.thumbnail((max_dim, max_dim))
     buffer = BytesIO()
