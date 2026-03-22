@@ -23,21 +23,11 @@ def upgrade() -> None:
     """Upgrade schema."""
     op.add_column(
         "foods",
-        sa.Column(
-            "image_key",
-            sqlmodel.sql.sqltypes.AutoString(length=512),
-            nullable=False,
-            server_default="defaults/food.svg",
-        ),
+        sa.Column("image_key", sqlmodel.sql.sqltypes.AutoString(length=512), nullable=True),
     )
     op.add_column(
         "drinks",
-        sa.Column(
-            "image_key",
-            sqlmodel.sql.sqltypes.AutoString(length=512),
-            nullable=False,
-            server_default="defaults/drink.svg",
-        ),
+        sa.Column("image_key", sqlmodel.sql.sqltypes.AutoString(length=512), nullable=True),
     )
 
 

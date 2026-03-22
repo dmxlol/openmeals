@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from starlette import status
 
+from core.config import settings
 from core.schemes import CursorPage
 from libs.exceptions import ConflictError
 from libs.pagination import PaginationDependency, paginate
@@ -43,21 +44,30 @@ async def get_meal(
     meal: MealDependency,
 ) -> MealResponse:
     foods_result = await db.execute(
-        select(MealFood, Food.name.label("food_name"))
+        select(MealFood, Food.name.label("food_name"), Food.image_key.label("food_image_key"))
         .join(Food, MealFood.food_id == Food.id)
         .where(MealFood.meal_id == meal.id, MealFood.user_id == meal.user_id)
     )
     drinks_result = await db.execute(
-        select(MealDrink, Drink.name.label("drink_name"))
+        select(MealDrink, Drink.name.label("drink_name"), Drink.image_key.label("drink_image_key"))
         .join(Drink, MealDrink.drink_id == Drink.id)
         .where(MealDrink.meal_id == meal.id, MealDrink.user_id == meal.user_id)
     )
+    cdn = settings.s3.cdn_base_url
     foods = [
-        {**{c.key: getattr(row.MealFood, c.key) for c in MealFood.__table__.columns}, "food_name": row.food_name}
+        {
+            **{c.key: getattr(row.MealFood, c.key) for c in MealFood.__table__.columns},
+            "food_name": row.food_name,
+            "image_url": f"{cdn}/{row.food_image_key}" if row.food_image_key else None,
+        }
         for row in foods_result.all()
     ]
     drinks = [
-        {**{c.key: getattr(row.MealDrink, c.key) for c in MealDrink.__table__.columns}, "drink_name": row.drink_name}
+        {
+            **{c.key: getattr(row.MealDrink, c.key) for c in MealDrink.__table__.columns},
+            "drink_name": row.drink_name,
+            "image_url": f"{cdn}/{row.drink_image_key}" if row.drink_image_key else None,
+        }
         for row in drinks_result.all()
     ]
     return MealResponse.model_validate(
@@ -124,7 +134,9 @@ async def add_meal_food(
         raise
     await db.refresh(meal_food)
     food = await db.get(Food, meal_food.food_id)
-    return MealFoodResponse(**meal_food.model_dump(), food_name=food.name)
+    cdn = settings.s3.cdn_base_url
+    image_url = f"{cdn}/{food.image_key}" if food.image_key else None
+    return MealFoodResponse(**meal_food.model_dump(), food_name=food.name, image_url=image_url)
 
 
 @router.patch("/{meal_id}/foods/{food_id}")
@@ -137,7 +149,9 @@ async def update_meal_food(
     await db.commit()
     await db.refresh(meal_food)
     food = await db.get(Food, meal_food.food_id)
-    return MealFoodResponse(**meal_food.model_dump(), food_name=food.name)
+    cdn = settings.s3.cdn_base_url
+    image_url = f"{cdn}/{food.image_key}" if food.image_key else None
+    return MealFoodResponse(**meal_food.model_dump(), food_name=food.name, image_url=image_url)
 
 
 @router.delete("/{meal_id}/foods/{food_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -169,7 +183,9 @@ async def add_meal_drink(
         raise
     await db.refresh(meal_drink)
     drink = await db.get(Drink, meal_drink.drink_id)
-    return MealDrinkResponse(**meal_drink.model_dump(), drink_name=drink.name)
+    cdn = settings.s3.cdn_base_url
+    image_url = f"{cdn}/{drink.image_key}" if drink.image_key else None
+    return MealDrinkResponse(**meal_drink.model_dump(), drink_name=drink.name, image_url=image_url)
 
 
 @router.patch("/{meal_id}/drinks/{drink_id}")
@@ -182,7 +198,9 @@ async def update_meal_drink(
     await db.commit()
     await db.refresh(meal_drink)
     drink = await db.get(Drink, meal_drink.drink_id)
-    return MealDrinkResponse(**meal_drink.model_dump(), drink_name=drink.name)
+    cdn = settings.s3.cdn_base_url
+    image_url = f"{cdn}/{drink.image_key}" if drink.image_key else None
+    return MealDrinkResponse(**meal_drink.model_dump(), drink_name=drink.name, image_url=image_url)
 
 
 @router.delete("/{meal_id}/drinks/{drink_id}", status_code=status.HTTP_204_NO_CONTENT)

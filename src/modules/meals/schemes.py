@@ -30,6 +30,7 @@ class MealFoodResponse(BaseSchema):
     meal_id: ULIDStr
     food_id: ULIDStr
     food_name: str
+    image_url: str | None = None
     amount: float
 
 
@@ -47,4 +48,5 @@ class MealDrinkResponse(BaseSchema):
     meal_id: str
     drink_id: str
     drink_name: str
+    image_url: str | None = None
     amount: float

@@ -28,8 +28,6 @@ class S3Settings(BaseSettings):
     image_max_dimension: int = 1200
     image_webp_quality: int = 85
     image_cache_max_age: int = 31536000
-    default_food_image_key: str = "defaults/food.svg"
-    default_drink_image_key: str = "defaults/drink.svg"
     image_upload_countdown: int = 10
     image_retry_countdown: int = 15
     image_max_retries: int = 20

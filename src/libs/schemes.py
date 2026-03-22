@@ -42,12 +42,14 @@ class UserIdSchema(BaseSchema):
 
 
 class ImageMixin(BaseSchema):
-    image_key: str = Field(exclude=True)
-    cdn_base_url: str = Field(exclude=True)
+    image_key: str | None = Field(default=None, exclude=True)
+    cdn_base_url: str | None = Field(default=None, exclude=True)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def image_url(self) -> str:
+    def image_url(self) -> str | None:
+        if self.image_key is None or self.cdn_base_url is None:
+            return None
         return f"{self.cdn_base_url}/{self.image_key}"
 
 
