@@ -6,11 +6,18 @@ from starlette import status
 from core.config import settings
 from core.schemes import CursorPage
 from libs.exceptions import ConflictError
+from libs.locale import Locale
 from libs.pagination import PaginationDependency, paginate
 from libs.types import DBSessionDependency
-from modules.drinks.models import Drink
-from modules.foods.models import Food
-from modules.meals.dependencies import MealDependency, MealDrinkDependency, MealFoodDependency
+from modules.drinks.models import Drink, DrinkTranslation
+from modules.foods.models import Food, FoodTranslation
+from modules.meals.dependencies import (
+    MealDependency,
+    MealDrinkDependency,
+    MealDrinkTranslationDependency,
+    MealFoodDependency,
+    MealFoodTranslationDependency,
+)
 from modules.meals.models import Meal, MealDrink, MealFood
 from modules.meals.schemes import (
     MealCreate,
@@ -23,7 +30,7 @@ from modules.meals.schemes import (
     MealResponse,
     MealUpdate,
 )
-from modules.users.dependencies import CurrentUserDependency
+from modules.users.dependencies import CurrentUserDependency, LocaleDependency
 
 router = APIRouter(prefix="/meals", tags=["meals"])
 
@@ -42,33 +49,43 @@ async def list_meals(
 async def get_meal(
     db: DBSessionDependency,
     meal: MealDependency,
+    locale: LocaleDependency,
 ) -> MealResponse:
     foods_result = await db.execute(
-        select(MealFood, Food.name.label("food_name"), Food.image_key.label("food_image_key"))
+        select(MealFood, Food.image_key.label("food_image_key"))
         .join(Food, MealFood.food_id == Food.id)
         .where(MealFood.meal_id == meal.id, MealFood.user_id == meal.user_id)
     )
     drinks_result = await db.execute(
-        select(MealDrink, Drink.name.label("drink_name"), Drink.image_key.label("drink_image_key"))
+        select(MealDrink, Drink.image_key.label("drink_image_key"))
         .join(Drink, MealDrink.drink_id == Drink.id)
         .where(MealDrink.meal_id == meal.id, MealDrink.user_id == meal.user_id)
     )
+    food_rows = foods_result.all()
+    drink_rows = drinks_result.all()
+
+    food_ids = [row.MealFood.food_id for row in food_rows]
+    drink_ids = [row.MealDrink.drink_id for row in drink_rows]
+
+    food_names = await _batch_names(db, FoodTranslation, FoodTranslation.food_id, food_ids, locale)
+    drink_names = await _batch_names(db, DrinkTranslation, DrinkTranslation.drink_id, drink_ids, locale)
+
     cdn = settings.s3.cdn_base_url
     foods = [
         {
             **{c.key: getattr(row.MealFood, c.key) for c in MealFood.__table__.columns},
-            "food_name": row.food_name,
+            "food_name": food_names.get(row.MealFood.food_id, ""),
             "image_url": f"{cdn}/{row.food_image_key}" if row.food_image_key else None,
         }
-        for row in foods_result.all()
+        for row in food_rows
     ]
     drinks = [
         {
             **{c.key: getattr(row.MealDrink, c.key) for c in MealDrink.__table__.columns},
-            "drink_name": row.drink_name,
+            "drink_name": drink_names.get(row.MealDrink.drink_id, ""),
             "image_url": f"{cdn}/{row.drink_image_key}" if row.drink_image_key else None,
         }
-        for row in drinks_result.all()
+        for row in drink_rows
     ]
     return MealResponse.model_validate(
         {
@@ -77,6 +94,25 @@ async def get_meal(
             "drinks": drinks,
         },
     )
+
+
+async def _batch_names(
+    db,
+    model: type[FoodTranslation] | type[DrinkTranslation],
+    id_col,
+    ids: list[str],
+    locale: Locale,
+) -> dict[str, str]:
+    """Resolve display names for a list of entity IDs using translations with EN_US fallback."""
+    if not ids:
+        return {}
+    result = await db.execute(
+        select(id_col, model.name)
+        .where(id_col.in_(ids), model.locale.in_([locale, settings.default_locale]))
+        .distinct(id_col)
+        .order_by(id_col, model.locale != locale)
+    )
+    return dict(result.all())
 
 
 @router.post("", response_model=MealResponse, status_code=status.HTTP_201_CREATED)
@@ -114,14 +150,12 @@ async def delete_meal(
     await db.commit()
 
 
-# --- Meal Foods ---
-
-
 @router.post("/{meal_id}/foods", status_code=status.HTTP_201_CREATED)
 async def add_meal_food(
     body: MealFoodCreate,
     db: DBSessionDependency,
     meal: MealDependency,
+    locale: LocaleDependency,
 ) -> MealFoodResponse:
     meal_food = MealFood(user_id=meal.user_id, meal_id=meal.id, **body.model_dump())
     db.add(meal_food)
@@ -134,9 +168,17 @@ async def add_meal_food(
         raise
     await db.refresh(meal_food)
     food = await db.get(Food, meal_food.food_id)
+    tr_result = await db.execute(
+        select(FoodTranslation)
+        .where(FoodTranslation.food_id == meal_food.food_id)
+        .where(FoodTranslation.locale.in_([locale, settings.default_locale]))
+        .order_by(FoodTranslation.locale != locale)
+        .limit(1)
+    )
+    translation = tr_result.scalar_one_or_none()
     cdn = settings.s3.cdn_base_url
     image_url = f"{cdn}/{food.image_key}" if food.image_key else None
-    return MealFoodResponse(**meal_food.model_dump(), food_name=food.name, image_url=image_url)
+    return MealFoodResponse(**meal_food.model_dump(), food_name=translation.name, image_url=image_url)
 
 
 @router.patch("/{meal_id}/foods/{food_id}")
@@ -144,6 +186,7 @@ async def update_meal_food(
     body: MealFoodUpdate,
     db: DBSessionDependency,
     meal_food: MealFoodDependency,
+    translation: MealFoodTranslationDependency,
 ) -> MealFoodResponse:
     meal_food.amount = body.amount
     await db.commit()
@@ -151,7 +194,7 @@ async def update_meal_food(
     food = await db.get(Food, meal_food.food_id)
     cdn = settings.s3.cdn_base_url
     image_url = f"{cdn}/{food.image_key}" if food.image_key else None
-    return MealFoodResponse(**meal_food.model_dump(), food_name=food.name, image_url=image_url)
+    return MealFoodResponse(**meal_food.model_dump(), food_name=translation.name, image_url=image_url)
 
 
 @router.delete("/{meal_id}/foods/{food_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -163,14 +206,12 @@ async def delete_meal_food(
     await db.commit()
 
 
-# --- Meal Drinks ---
-
-
 @router.post("/{meal_id}/drinks", status_code=status.HTTP_201_CREATED)
 async def add_meal_drink(
     body: MealDrinkCreate,
     db: DBSessionDependency,
     meal: MealDependency,
+    locale: LocaleDependency,
 ) -> MealDrinkResponse:
     meal_drink = MealDrink(user_id=meal.user_id, meal_id=meal.id, **body.model_dump())
     db.add(meal_drink)
@@ -183,9 +224,19 @@ async def add_meal_drink(
         raise
     await db.refresh(meal_drink)
     drink = await db.get(Drink, meal_drink.drink_id)
+    tr_result = await db.execute(
+        select(DrinkTranslation)
+        .where(DrinkTranslation.drink_id == meal_drink.drink_id)
+        .where(DrinkTranslation.locale.in_([locale, settings.default_locale]))
+        .order_by(DrinkTranslation.locale != locale)
+        .limit(1)
+    )
+    translation = tr_result.scalar_one_or_none()
     cdn = settings.s3.cdn_base_url
     image_url = f"{cdn}/{drink.image_key}" if drink.image_key else None
-    return MealDrinkResponse(**meal_drink.model_dump(), drink_name=drink.name, image_url=image_url)
+    return MealDrinkResponse(
+        **meal_drink.model_dump(), drink_name=translation.name if translation else "", image_url=image_url
+    )
 
 
 @router.patch("/{meal_id}/drinks/{drink_id}")
@@ -193,6 +244,7 @@ async def update_meal_drink(
     body: MealDrinkUpdate,
     db: DBSessionDependency,
     meal_drink: MealDrinkDependency,
+    translation: MealDrinkTranslationDependency,
 ) -> MealDrinkResponse:
     meal_drink.amount = body.amount
     await db.commit()
@@ -200,7 +252,9 @@ async def update_meal_drink(
     drink = await db.get(Drink, meal_drink.drink_id)
     cdn = settings.s3.cdn_base_url
     image_url = f"{cdn}/{drink.image_key}" if drink.image_key else None
-    return MealDrinkResponse(**meal_drink.model_dump(), drink_name=drink.name, image_url=image_url)
+    return MealDrinkResponse(
+        **meal_drink.model_dump(), drink_name=translation.name if translation else "", image_url=image_url
+    )
 
 
 @router.delete("/{meal_id}/drinks/{drink_id}", status_code=status.HTTP_204_NO_CONTENT)
