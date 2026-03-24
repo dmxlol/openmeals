@@ -93,7 +93,7 @@ async def search_foods(
     ]
 
 
-@router.get("/{food_id}")
+@router.get("/{pk}")
 async def get_food(
     food: FoodDependency,
     translation: FoodTranslationDependency,
@@ -121,7 +121,7 @@ async def create_food(
     return apply_translation(food, translation, FoodResponse)
 
 
-@router.patch("/{food_id}")
+@router.patch("/{pk}")
 async def update_food(
     body: FoodUpdate,
     db: DBSessionDependency,
@@ -149,7 +149,7 @@ async def update_food(
     return apply_translation(food, en_us_tr, FoodResponse)
 
 
-@router.delete("/{food_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{pk}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_food(
     db: DBSessionDependency,
     food: WritableFoodDependency,
@@ -158,7 +158,7 @@ async def delete_food(
     await db.commit()
 
 
-@router.post("/{food_id}/image")
+@router.post("/{pk}/image")
 async def upload_food_image(
     food: WritableFoodDependency,
     db: DBSessionDependency,

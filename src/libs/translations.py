@@ -2,6 +2,7 @@ import typing as t
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel
 
 from core.config import settings
 from libs.locale import Locale
@@ -9,7 +10,7 @@ from libs.locale import Locale
 
 async def fetch_translations(
     db: AsyncSession,
-    model: type,
+    model: type[SQLModel],
     id_col: t.Any,
     ids: list[str],
     locale: Locale,

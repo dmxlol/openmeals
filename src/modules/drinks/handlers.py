@@ -93,7 +93,7 @@ async def search_drinks(
     ]
 
 
-@router.get("/{drink_id}")
+@router.get("/{pk}")
 async def get_drink(
     drink: DrinkDependency,
     translation: DrinkTranslationDependency,
@@ -121,7 +121,7 @@ async def create_drink(
     return apply_translation(drink, translation, DrinkResponse)
 
 
-@router.patch("/{drink_id}")
+@router.patch("/{pk}")
 async def update_drink(
     body: DrinkUpdate,
     db: DBSessionDependency,
@@ -149,7 +149,7 @@ async def update_drink(
     return apply_translation(drink, en_us_tr, DrinkResponse)
 
 
-@router.delete("/{drink_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{pk}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_drink(
     db: DBSessionDependency,
     drink: WritableDrinkDependency,
@@ -158,7 +158,7 @@ async def delete_drink(
     await db.commit()
 
 
-@router.post("/{drink_id}/image")
+@router.post("/{pk}/image")
 async def upload_drink_image(
     drink: WritableDrinkDependency,
     db: DBSessionDependency,
