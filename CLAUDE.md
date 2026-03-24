@@ -65,6 +65,7 @@ modulesX/
 - `Depends(some_function)` for single-value dependencies; `Depends(PydanticModel)` is fine for grouped query params (e.g. `PaginationParams`)
 - On GET endpoints, annotate non-path parameters explicitly with `Query(...)` — do not rely on implicit resolution
 - Route handlers should be thin: resolve dependencies, call a service/manager, return response
+- dependencies must be created only once with `Depends`/`Security` and then reused. 
 - Use `BackgroundTasks` for fire-and-forget DB updates after the response is built
 
 ## Forbidden patterns
