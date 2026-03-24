@@ -12,35 +12,48 @@ from libs.db import ingestible_visible_filter
 from libs.exceptions import ConflictError, TimeoutError
 from libs.pagination import PaginationDependency, paginate
 from libs.schemes import ImageUploadResponse
+from libs.translations import apply_translation, fetch_translations
 from libs.types import DBSessionDependency
-from modules.foods.dependencies import FoodDependency, WritableFoodDependency
-from modules.foods.models import Food
-from modules.foods.schemes import FoodCreate, FoodResponse, FoodSearchResult, FoodUpdate
+from modules.foods.dependencies import FoodDependency, FoodTranslationDependency, WritableFoodDependency
+from modules.foods.models import Food, FoodTranslation
+from modules.foods.schemes import (
+    FoodCreate,
+    FoodResponse,
+    FoodSearchResult,
+    FoodUpdate,
+)
 from modules.foods.tasks import generate_food_embedding, process_food_image
-from modules.users.dependencies import CurrentUserDependency, OptionalUserDependency
+from modules.users.dependencies import CurrentUserDependency, LocaleDependency, OptionalUserDependency
 from services.image import ImageContentType, ImageManagerDependency
 from services.tasks import embed_text
 
 router = APIRouter(prefix="/foods", tags=["foods"])
 
 
-@router.get("", response_model=CursorPage[FoodResponse])
+@router.get("")
 async def list_foods(
     db: DBSessionDependency,
     user: OptionalUserDependency,
     pagination: PaginationDependency,
+    locale: LocaleDependency,
     mine: t.Annotated[bool | None, Query()] = None,
-) -> CursorPage[Food]:
+) -> CursorPage[FoodResponse]:
     stmt = select(Food).where(ingestible_visible_filter(Food, user))
     if mine is True and user is not None:
         stmt = stmt.where(Food.creator_id == user.id)
-    return await paginate(db, stmt, Food, pagination)
+    page = await paginate(db, stmt, Food, pagination)
+
+    food_ids = [f.id for f in page.items]
+    translations = await fetch_translations(db, FoodTranslation, FoodTranslation.food_id, food_ids, locale)
+    items = [apply_translation(f, translations.get(f.id), FoodResponse) for f in page.items]
+    return CursorPage(items=items, total=page.total, next_cursor=page.next_cursor)
 
 
 @router.get("/search")
 async def search_foods(
     db: DBSessionDependency,
     _user: OptionalUserDependency,
+    locale: LocaleDependency,
     q: t.Annotated[str, Query(min_length=1)],
     limit: t.Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> list[FoodSearchResult]:
@@ -56,51 +69,84 @@ async def search_foods(
     stmt = (
         select(
             Food,
-            func.round(cast(Food.embedding.cosine_distance(query_embedding), Numeric), 3).label("score"),
+            func.round(cast(FoodTranslation.embedding.cosine_distance(query_embedding), Numeric), 3).label("score"),
         )
-        .where(Food.embedding.is_not(None))
+        .join(
+            FoodTranslation,
+            (FoodTranslation.food_id == Food.id) & (FoodTranslation.locale == settings.default_locale),
+        )
+        .where(FoodTranslation.embedding.is_not(None))
         .order_by("score")
         .limit(limit)
     )
     result = await db.execute(stmt)
-    return [FoodSearchResult(**row.Food.model_dump(), score=row.score) for row in result.all()]
+    rows = result.all()
+
+    food_ids = [row.Food.id for row in rows]
+    translations = await fetch_translations(db, FoodTranslation, FoodTranslation.food_id, food_ids, locale)
+    return [
+        FoodSearchResult(
+            **apply_translation(row.Food, translations.get(row.Food.id), FoodResponse).model_dump(),
+            score=row.score,
+        )
+        for row in rows
+    ]
 
 
-@router.get("/{food_id}", response_model=FoodResponse)
+@router.get("/{food_id}")
 async def get_food(
     food: FoodDependency,
-) -> Food:
-    return food
+    translation: FoodTranslationDependency,
+) -> FoodResponse:
+    return apply_translation(food, translation, FoodResponse)
 
 
-@router.post("", response_model=FoodResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_food(
     body: FoodCreate,
     db: DBSessionDependency,
     user: CurrentUserDependency,
-) -> Food:
-    food = Food(**body.model_dump(), creator_id=user.id)
+) -> FoodResponse:
+    data = body.model_dump()
+    name = data.pop("name")
+    food = Food(**data, creator_id=user.id)
     db.add(food)
+    await db.flush()
+    translation = FoodTranslation(food_id=food.id, locale=settings.default_locale, name=name)
+    db.add(translation)
     await db.commit()
     await db.refresh(food)
+    await db.refresh(translation)
     generate_food_embedding.delay(food.id)
-    return food
+    return apply_translation(food, translation, FoodResponse)
 
 
-@router.patch("/{food_id}", response_model=FoodResponse)
+@router.patch("/{food_id}")
 async def update_food(
     body: FoodUpdate,
     db: DBSessionDependency,
     food: WritableFoodDependency,
-) -> Food:
+) -> FoodResponse:
     updates = body.model_dump(exclude_unset=True)
+    name = updates.pop("name", None)
     for key, value in updates.items():
         setattr(food, key, value)
+
+    en_us_tr = await db.get(FoodTranslation, (food.id, settings.default_locale))
+    if name is not None:
+        if en_us_tr is None:
+            en_us_tr = FoodTranslation(food_id=food.id, locale=settings.default_locale, name=name)
+            db.add(en_us_tr)
+        else:
+            en_us_tr.name = name
+        generate_food_embedding.delay(food.id)
+
     await db.commit()
     await db.refresh(food)
-    if "name" in updates:
-        generate_food_embedding.delay(food.id)
-    return food
+    if en_us_tr is not None:
+        await db.refresh(en_us_tr)
+
+    return apply_translation(food, en_us_tr, FoodResponse)
 
 
 @router.delete("/{food_id}", status_code=status.HTTP_204_NO_CONTENT)

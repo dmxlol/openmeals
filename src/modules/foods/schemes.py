@@ -40,6 +40,7 @@ class FoodResponse(ImageMixin, TimestampSchema, IdSchema, FoodBase):
     cdn_base_url: str = Field(default=settings.s3.cdn_base_url, exclude=True)
     creator_id: ULIDStr | None = None
     curated: bool | None = None
+    description: str | None = None
 
 
 class FoodSearchResult(FoodResponse):
