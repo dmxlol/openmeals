@@ -5,26 +5,30 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from modules.foods.models import Food
+from libs.locale import Locale
+from modules.foods.models import Food, FoodTranslation
 from modules.users.models import User
 from services.image import UploadResultDto, get_image_manager
 from tests.factories import FoodFactory, UserFactory
 
 
+async def _add_food(db: AsyncSession, **kwargs) -> Food:
+    f = FoodFactory.build(**kwargs)
+    db.add(f)
+    await db.flush()
+    db.add(FoodTranslation(food_id=f.id, locale=Locale.EN_US, name="Test Food"))
+    await db.flush()
+    return f
+
+
 @pytest.fixture
 async def food(db_session: AsyncSession, test_user: User) -> Food:
-    f = FoodFactory.build(creator_id=test_user.id)
-    db_session.add(f)
-    await db_session.flush()
-    return f
+    return await _add_food(db_session, creator_id=test_user.id)
 
 
 @pytest.fixture
 async def global_food(db_session: AsyncSession) -> Food:
-    f = FoodFactory.build(creator_id=None)
-    db_session.add(f)
-    await db_session.flush()
-    return f
+    return await _add_food(db_session, creator_id=None)
 
 
 @pytest.fixture
@@ -32,10 +36,7 @@ async def curated_food(db_session: AsyncSession) -> Food:
     other = UserFactory.build()
     db_session.add(other)
     await db_session.flush()
-    f = FoodFactory.build(creator_id=other.id, curated=True)
-    db_session.add(f)
-    await db_session.flush()
-    return f
+    return await _add_food(db_session, creator_id=other.id, curated=True)
 
 
 class TestListFoods:
@@ -66,10 +67,8 @@ class TestListFoods:
         assert global_food.id not in ids
 
     async def test_pagination(self, client: AsyncClient, db_session: AsyncSession, test_user: User):
-        foods = [FoodFactory.build(creator_id=test_user.id) for _ in range(5)]
-        for f in foods:
-            db_session.add(f)
-        await db_session.flush()
+        for _ in range(5):
+            await _add_food(db_session, creator_id=test_user.id)
 
         resp = await client.get("/api/v1/foods", params={"limit": 2})
         assert resp.status_code == 200

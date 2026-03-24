@@ -86,17 +86,22 @@ async def test_get_meal_with_foods_and_drinks(
 
     food_row = MagicMock()
     food_row.MealFood = meal_food
-    food_row.food_name = "Chicken Breast"
+    food_row.food_image_key = None
     foods_result = MagicMock()
     foods_result.all.return_value = [food_row]
 
     drink_row = MagicMock()
     drink_row.MealDrink = meal_drink
-    drink_row.drink_name = "Green Tea"
+    drink_row.drink_image_key = None
     drinks_result = MagicMock()
     drinks_result.all.return_value = [drink_row]
 
-    mock_db.execute.side_effect = [foods_result, drinks_result]
+    food_names_result = MagicMock()
+    food_names_result.all.return_value = [(food_id, "Chicken Breast")]
+    drink_names_result = MagicMock()
+    drink_names_result.all.return_value = [(drink_id, "Green Tea")]
+
+    mock_db.execute.side_effect = [foods_result, drinks_result, food_names_result, drink_names_result]
 
     response = await client.get(f"/api/v1/meals/{meal.id}")
     assert response.status_code == status.HTTP_200_OK
@@ -144,8 +149,13 @@ async def test_add_food_to_meal(client: AsyncClient, app: FastAPI, mock_db: Asyn
     app.dependency_overrides[get_meal_dependency] = lambda: meal
     food_id = str(ULID())
     food_mock = MagicMock()
-    food_mock.name = "Banana"
+    food_mock.image_key = None
+    translation_mock = MagicMock()
+    translation_mock.name = "Banana"
     mock_db.get.return_value = food_mock
+    tr_result = MagicMock()
+    tr_result.scalar_one_or_none.return_value = translation_mock
+    mock_db.execute.return_value = tr_result
 
     response = await client.post(f"/api/v1/meals/{meal.id}/foods", json={"foodId": food_id, "amount": 150.0})
 
@@ -177,8 +187,13 @@ async def test_add_drink_to_meal(client: AsyncClient, app: FastAPI, mock_db: Asy
     app.dependency_overrides[get_meal_dependency] = lambda: meal
     drink_id = str(ULID())
     drink_mock = MagicMock()
-    drink_mock.name = "Green Tea"
+    drink_mock.image_key = None
+    translation_mock = MagicMock()
+    translation_mock.name = "Green Tea"
     mock_db.get.return_value = drink_mock
+    tr_result = MagicMock()
+    tr_result.scalar_one_or_none.return_value = translation_mock
+    mock_db.execute.return_value = tr_result
 
     response = await client.post(f"/api/v1/meals/{meal.id}/drinks", json={"drinkId": drink_id, "amount": 250.0})
 

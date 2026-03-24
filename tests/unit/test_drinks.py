@@ -7,15 +7,15 @@ from ulid import ULID
 
 from core.config import settings
 from libs.datetime import utcnow
+from libs.locale import Locale
 from modules.drinks.dependencies import get_drink_dependency, get_writable_drink_dependency
-from modules.drinks.models import Drink
+from modules.drinks.models import Drink, DrinkTranslation
 from services.image import UploadResultDto, get_image_manager
 
 
 def _make_drink(**overrides) -> Drink:
     defaults = {
         "id": str(ULID()),
-        "name": "Test Drink",
         "ph": 7.0,
         "is_carbonated": False,
         "vitamins": {},
@@ -29,6 +29,10 @@ def _make_drink(**overrides) -> Drink:
     }
     defaults.update(overrides)
     return Drink(**defaults)
+
+
+def _make_translation(drink: Drink, name: str = "Test Drink") -> DrinkTranslation:
+    return DrinkTranslation(drink_id=drink.id, locale=Locale.EN_US, name=name)
 
 
 async def test_list_drinks_empty(client: AsyncClient, mock_db: AsyncMock) -> None:
@@ -48,11 +52,14 @@ async def test_list_drinks_empty(client: AsyncClient, mock_db: AsyncMock) -> Non
 
 async def test_list_drinks_with_items(client: AsyncClient, mock_db: AsyncMock) -> None:
     drink = _make_drink()
+    tr = _make_translation(drink)
     count_result = MagicMock()
     count_result.scalar_one.return_value = 1
     items_result = MagicMock()
     items_result.scalars.return_value.all.return_value = [drink]
-    mock_db.execute.side_effect = [count_result, items_result]
+    en_us_result = MagicMock()
+    en_us_result.scalars.return_value = [tr]
+    mock_db.execute.side_effect = [count_result, items_result, en_us_result]
 
     response = await client.get("/api/v1/drinks")
     assert response.status_code == status.HTTP_200_OK
@@ -63,9 +70,12 @@ async def test_list_drinks_with_items(client: AsyncClient, mock_db: AsyncMock) -
     assert data["items"][0]["ph"] == 7.0
 
 
-async def test_get_drink(client: AsyncClient, app: FastAPI) -> None:
+async def test_get_drink(client: AsyncClient, app: FastAPI, mock_db: AsyncMock) -> None:
     drink = _make_drink()
     app.dependency_overrides[get_drink_dependency] = lambda: drink
+    tr_result = MagicMock()
+    tr_result.scalar_one_or_none.return_value = _make_translation(drink)
+    mock_db.execute.return_value = tr_result
 
     response = await client.get(f"/api/v1/drinks/{drink.id}")
     assert response.status_code == status.HTTP_200_OK
@@ -88,7 +98,7 @@ async def test_create_drink(client: AsyncClient, mock_db: AsyncMock) -> None:
     assert data["name"] == "New Drink"
     assert data["ph"] == 6.5
     assert data["isCarbonated"] is True
-    mock_db.add.assert_called_once()
+    assert mock_db.add.call_count == 2  # drink + EN_US translation
     mock_db.commit.assert_awaited_once()
 
 
@@ -99,7 +109,7 @@ async def test_update_drink(client: AsyncClient, app: FastAPI, mock_db: AsyncMoc
     with patch("modules.drinks.handlers.generate_drink_embedding"):
         response = await client.patch(f"/api/v1/drinks/{drink.id}", json={"name": "Updated"})
     assert response.status_code == status.HTTP_200_OK
-    assert drink.name == "Updated"
+    assert response.json()["name"] == "Updated"
     mock_db.commit.assert_awaited_once()
 
 
@@ -156,9 +166,12 @@ async def test_upload_drink_image_requires_auth(anon_client: AsyncClient) -> Non
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-async def test_drink_response_includes_image_url(client: AsyncClient, app: FastAPI) -> None:
+async def test_drink_response_includes_image_url(client: AsyncClient, app: FastAPI, mock_db: AsyncMock) -> None:
     drink = _make_drink(image_key="drinks/abc/hash.webp")
     app.dependency_overrides[get_drink_dependency] = lambda: drink
+    tr_result = MagicMock()
+    tr_result.scalar_one_or_none.return_value = _make_translation(drink)
+    mock_db.execute.return_value = tr_result
 
     response = await client.get(f"/api/v1/drinks/{drink.id}")
     assert response.status_code == status.HTTP_200_OK

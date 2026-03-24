@@ -11,9 +11,19 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.foods.models import Food
+from libs.locale import Locale
+from modules.foods.models import Food, FoodTranslation
 from modules.users.models import User
 from tests.factories import FoodFactory, UserFactory
+
+
+async def _add_food(db: AsyncSession, **kwargs) -> Food:
+    f = FoodFactory.build(**kwargs)
+    db.add(f)
+    await db.flush()
+    db.add(FoodTranslation(food_id=f.id, locale=Locale.EN_US, name="Test Food"))
+    await db.flush()
+    return f
 
 
 @pytest.fixture
@@ -26,34 +36,22 @@ async def other_user(db_session: AsyncSession) -> User:
 
 @pytest.fixture
 async def global_food(db_session: AsyncSession) -> Food:
-    f = FoodFactory.build(creator_id=None, curated=None)
-    db_session.add(f)
-    await db_session.flush()
-    return f
+    return await _add_food(db_session, creator_id=None, curated=None)
 
 
 @pytest.fixture
 async def curated_food(db_session: AsyncSession, other_user: User) -> Food:
-    f = FoodFactory.build(creator_id=other_user.id, curated=True)
-    db_session.add(f)
-    await db_session.flush()
-    return f
+    return await _add_food(db_session, creator_id=other_user.id, curated=True)
 
 
 @pytest.fixture
 async def own_food(db_session: AsyncSession, test_user: User) -> Food:
-    f = FoodFactory.build(creator_id=test_user.id)
-    db_session.add(f)
-    await db_session.flush()
-    return f
+    return await _add_food(db_session, creator_id=test_user.id)
 
 
 @pytest.fixture
 async def private_food(db_session: AsyncSession, other_user: User) -> Food:
-    f = FoodFactory.build(creator_id=other_user.id, curated=None)
-    db_session.add(f)
-    await db_session.flush()
-    return f
+    return await _add_food(db_session, creator_id=other_user.id, curated=None)
 
 
 class TestAuthenticatedVisibility:

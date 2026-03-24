@@ -5,26 +5,30 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from modules.drinks.models import Drink
+from libs.locale import Locale
+from modules.drinks.models import Drink, DrinkTranslation
 from modules.users.models import User
 from services.image import UploadResultDto, get_image_manager
 from tests.factories import DrinkFactory, UserFactory
 
 
+async def _add_drink(db: AsyncSession, **kwargs) -> Drink:
+    d = DrinkFactory.build(**kwargs)
+    db.add(d)
+    await db.flush()
+    db.add(DrinkTranslation(drink_id=d.id, locale=Locale.EN_US, name="Test Drink"))
+    await db.flush()
+    return d
+
+
 @pytest.fixture
 async def drink(db_session: AsyncSession, test_user: User) -> Drink:
-    d = DrinkFactory.build(creator_id=test_user.id)
-    db_session.add(d)
-    await db_session.flush()
-    return d
+    return await _add_drink(db_session, creator_id=test_user.id)
 
 
 @pytest.fixture
 async def global_drink(db_session: AsyncSession) -> Drink:
-    d = DrinkFactory.build(creator_id=None)
-    db_session.add(d)
-    await db_session.flush()
-    return d
+    return await _add_drink(db_session, creator_id=None)
 
 
 @pytest.fixture
@@ -32,10 +36,7 @@ async def curated_drink(db_session: AsyncSession) -> Drink:
     other = UserFactory.build()
     db_session.add(other)
     await db_session.flush()
-    d = DrinkFactory.build(creator_id=other.id, curated=True)
-    db_session.add(d)
-    await db_session.flush()
-    return d
+    return await _add_drink(db_session, creator_id=other.id, curated=True)
 
 
 class TestListDrinks:
@@ -66,9 +67,7 @@ class TestListDrinks:
 
     async def test_pagination(self, client: AsyncClient, db_session: AsyncSession, test_user: User):
         for _ in range(5):
-            d = DrinkFactory.build(creator_id=test_user.id)
-            db_session.add(d)
-        await db_session.flush()
+            await _add_drink(db_session, creator_id=test_user.id)
 
         resp = await client.get("/api/v1/drinks", params={"limit": 2})
         assert resp.status_code == 200

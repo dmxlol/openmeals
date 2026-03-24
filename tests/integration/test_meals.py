@@ -2,8 +2,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.drinks.models import Drink
-from modules.foods.models import Food
+from libs.locale import Locale
+from modules.drinks.models import Drink, DrinkTranslation
+from modules.foods.models import Food, FoodTranslation
 from modules.meals.models import Meal
 from modules.users.models import User
 from tests.factories import DrinkFactory, FoodFactory, MealFactory, UserFactory
@@ -22,6 +23,8 @@ async def food(db_session: AsyncSession, test_user: User) -> Food:
     f = FoodFactory.build(creator_id=test_user.id)
     db_session.add(f)
     await db_session.flush()
+    db_session.add(FoodTranslation(food_id=f.id, locale=Locale.EN_US, name="Test Food"))
+    await db_session.flush()
     return f
 
 
@@ -29,6 +32,8 @@ async def food(db_session: AsyncSession, test_user: User) -> Food:
 async def drink(db_session: AsyncSession, test_user: User) -> Drink:
     d = DrinkFactory.build(creator_id=test_user.id)
     db_session.add(d)
+    await db_session.flush()
+    db_session.add(DrinkTranslation(drink_id=d.id, locale=Locale.EN_US, name="Test Drink"))
     await db_session.flush()
     return d
 
@@ -85,11 +90,11 @@ class TestGetMeal:
         data = resp.json()
         assert len(data["foods"]) == 1
         assert data["foods"][0]["foodId"] == food.id
-        assert data["foods"][0]["foodName"] == food.name
+        assert data["foods"][0]["foodName"] == "Test Food"
         assert data["foods"][0]["amount"] == 100.0
         assert len(data["drinks"]) == 1
         assert data["drinks"][0]["drinkId"] == drink.id
-        assert data["drinks"][0]["drinkName"] == drink.name
+        assert data["drinks"][0]["drinkName"] == "Test Drink"
         assert data["drinks"][0]["amount"] == 250.0
 
     async def test_cannot_get_other_users_meal(self, client: AsyncClient, db_session: AsyncSession):

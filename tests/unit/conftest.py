@@ -10,7 +10,8 @@ from ulid import ULID
 from core.database import get_db_dependency
 from core.fastapi import create_app
 from libs.datetime import utcnow
-from modules.users.dependencies import get_current_user_dependency, get_optional_user_dependency
+from libs.locale import Locale
+from modules.users.dependencies import get_current_user_dependency, get_locale_dependency, get_optional_user_dependency
 from modules.users.models import User
 
 
@@ -27,6 +28,7 @@ def mock_db() -> AsyncMock:
     session.refresh = AsyncMock()
     session.delete = AsyncMock()
     session.add = MagicMock()
+    session.get = AsyncMock(return_value=None)
     return session
 
 
@@ -36,6 +38,7 @@ def app(mock_db: AsyncMock, mock_user: User) -> FastAPI:
     application.dependency_overrides[get_db_dependency] = lambda: mock_db
     application.dependency_overrides[get_current_user_dependency] = lambda: mock_user
     application.dependency_overrides[get_optional_user_dependency] = lambda: mock_user
+    application.dependency_overrides[get_locale_dependency] = lambda: Locale.EN_US
     return application
 
 
@@ -53,6 +56,7 @@ async def anon_client(mock_db: AsyncMock) -> t.AsyncGenerator[AsyncClient]:
     application = create_app()
     application.dependency_overrides[get_db_dependency] = lambda: mock_db
     application.dependency_overrides[get_optional_user_dependency] = lambda: None
+    application.dependency_overrides[get_locale_dependency] = lambda: Locale.EN_US
 
     async with AsyncClient(
         transport=ASGITransport(app=application),
