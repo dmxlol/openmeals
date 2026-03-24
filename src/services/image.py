@@ -6,7 +6,7 @@ from ulid import ULID
 
 from core.config import settings
 from libs.s3 import ext_from_content_type, generate_presigned_post
-from libs.types import get_s3_bucket_dependency
+from libs.types import S3BucketDependency
 
 
 class ImageContentType(StrEnum):
@@ -42,7 +42,7 @@ class ImageManager:
         return UploadResultDto(upload_url=upload_url, upload_fields=upload_fields, raw_key=raw_key)
 
 
-def get_image_manager(bucket: "Bucket" = Depends(get_s3_bucket_dependency)) -> ImageManager:
+def get_image_manager(bucket: S3BucketDependency) -> ImageManager:
     return ImageManager(bucket)
 
 
