@@ -77,4 +77,3 @@ modulesX/
 - Hardcoded secrets or magic values — use `core/config.py` settings
 - `import *` except in `__init__.py` re-exports
 - imports anywhere but at the beginning of file
-- Passing `doc.id` (ObjectId) to a Beanie `Link` field — pass the full document object so the link resolves correctly
