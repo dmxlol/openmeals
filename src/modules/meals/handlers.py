@@ -6,8 +6,8 @@ from starlette import status
 from core.config import settings
 from core.schemes import CursorPage
 from libs.exceptions import ConflictError
-from libs.locale import Locale
 from libs.pagination import PaginationDependency, paginate
+from libs.translations import batch_names, fetch_translations
 from libs.types import DBSessionDependency
 from modules.drinks.models import Drink, DrinkTranslation
 from modules.foods.models import Food, FoodTranslation
@@ -33,6 +33,7 @@ from modules.meals.schemes import (
 from modules.users.dependencies import CurrentUserDependency, LocaleDependency
 
 router = APIRouter(prefix="/meals", tags=["meals"])
+cdn = settings.s3.cdn_base_url
 
 
 @router.get("", response_model=CursorPage[MealResponse])
@@ -67,10 +68,9 @@ async def get_meal(
     food_ids = [row.MealFood.food_id for row in food_rows]
     drink_ids = [row.MealDrink.drink_id for row in drink_rows]
 
-    food_names = await _batch_names(db, FoodTranslation, FoodTranslation.food_id, food_ids, locale)
-    drink_names = await _batch_names(db, DrinkTranslation, DrinkTranslation.drink_id, drink_ids, locale)
+    food_names = await batch_names(db, FoodTranslation, FoodTranslation.food_id, food_ids, locale)
+    drink_names = await batch_names(db, DrinkTranslation, DrinkTranslation.drink_id, drink_ids, locale)
 
-    cdn = settings.s3.cdn_base_url
     foods = [
         {
             **{c.key: getattr(row.MealFood, c.key) for c in MealFood.__table__.columns},
@@ -94,25 +94,6 @@ async def get_meal(
             "drinks": drinks,
         },
     )
-
-
-async def _batch_names(
-    db,
-    model: type[FoodTranslation] | type[DrinkTranslation],
-    id_col,
-    ids: list[str],
-    locale: Locale,
-) -> dict[str, str]:
-    """Resolve display names for a list of entity IDs using translations with EN_US fallback."""
-    if not ids:
-        return {}
-    result = await db.execute(
-        select(id_col, model.name)
-        .where(id_col.in_(ids), model.locale.in_([locale, settings.default_locale]))
-        .distinct(id_col)
-        .order_by(id_col, model.locale != locale)
-    )
-    return dict(result.all())
 
 
 @router.post("", response_model=MealResponse, status_code=status.HTTP_201_CREATED)
@@ -168,17 +149,11 @@ async def add_meal_food(
         raise
     await db.refresh(meal_food)
     food = await db.get(Food, meal_food.food_id)
-    tr_result = await db.execute(
-        select(FoodTranslation)
-        .where(FoodTranslation.food_id == meal_food.food_id)
-        .where(FoodTranslation.locale.in_([locale, settings.default_locale]))
-        .order_by(FoodTranslation.locale != locale)
-        .limit(1)
-    )
-    translation = tr_result.scalar_one_or_none()
-    cdn = settings.s3.cdn_base_url
+    translations = await fetch_translations(db, FoodTranslation, FoodTranslation.food_id, [meal_food.food_id], locale)
+    translation = translations.get(meal_food.food_id)
     image_url = f"{cdn}/{food.image_key}" if food.image_key else None
-    return MealFoodResponse(**meal_food.model_dump(), food_name=translation.name, image_url=image_url)
+    food_name = translation.name if translation else ""
+    return MealFoodResponse(**meal_food.model_dump(), food_name=food_name, image_url=image_url)
 
 
 @router.patch("/{meal_id}/foods/{food_id}")
@@ -192,9 +167,9 @@ async def update_meal_food(
     await db.commit()
     await db.refresh(meal_food)
     food = await db.get(Food, meal_food.food_id)
-    cdn = settings.s3.cdn_base_url
     image_url = f"{cdn}/{food.image_key}" if food.image_key else None
-    return MealFoodResponse(**meal_food.model_dump(), food_name=translation.name, image_url=image_url)
+    food_name = translation.name if translation else ""
+    return MealFoodResponse(**meal_food.model_dump(), food_name=food_name, image_url=image_url)
 
 
 @router.delete("/{meal_id}/foods/{food_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -224,15 +199,10 @@ async def add_meal_drink(
         raise
     await db.refresh(meal_drink)
     drink = await db.get(Drink, meal_drink.drink_id)
-    tr_result = await db.execute(
-        select(DrinkTranslation)
-        .where(DrinkTranslation.drink_id == meal_drink.drink_id)
-        .where(DrinkTranslation.locale.in_([locale, settings.default_locale]))
-        .order_by(DrinkTranslation.locale != locale)
-        .limit(1)
+    translations = await fetch_translations(
+        db, DrinkTranslation, DrinkTranslation.drink_id, [meal_drink.drink_id], locale
     )
-    translation = tr_result.scalar_one_or_none()
-    cdn = settings.s3.cdn_base_url
+    translation = translations.get(meal_drink.drink_id)
     image_url = f"{cdn}/{drink.image_key}" if drink.image_key else None
     return MealDrinkResponse(
         **meal_drink.model_dump(), drink_name=translation.name if translation else "", image_url=image_url
@@ -250,7 +220,6 @@ async def update_meal_drink(
     await db.commit()
     await db.refresh(meal_drink)
     drink = await db.get(Drink, meal_drink.drink_id)
-    cdn = settings.s3.cdn_base_url
     image_url = f"{cdn}/{drink.image_key}" if drink.image_key else None
     return MealDrinkResponse(
         **meal_drink.model_dump(), drink_name=translation.name if translation else "", image_url=image_url

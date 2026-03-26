@@ -52,7 +52,7 @@ def generate_presigned_post(
 def download_file(bucket: "Bucket", key: str) -> bytes:
     response = bucket.Object(key).get()
     b = response["Body"].read()
-    logging.info(f"File {key} downloaded from bucket {bucket.name}")
+    logging.info("File %s downloaded from bucket %s", key, bucket.name)
     return b
 
 
@@ -71,9 +71,9 @@ def upload_file(
     if cache_control:
         params["CacheControl"] = cache_control
     bucket.put_object(**params)
-    logging.info(f"File {key} uploaded to bucket {bucket.name}")
+    logging.info("File %s uploaded to bucket %s", key, bucket.name)
 
 
 def delete_file(bucket: "Bucket", key: str) -> None:
     bucket.Object(key).delete()
-    logging.info(f"File {key} deleted from bucket {bucket.name}")
+    logging.info("File %s deleted from bucket %s", key, bucket.name)

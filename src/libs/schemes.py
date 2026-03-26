@@ -18,10 +18,10 @@ class IdSchema(BaseSchema):
 
 
 class NamedSchema(BaseSchema):
-    name: str  # todo define common name rules ?
+    name: str
 
 
-class NamedIdSchema(IdSchema, NamedSchema, BaseSchema):
+class NamedIdSchema(IdSchema, NamedSchema):
     pass
 
 

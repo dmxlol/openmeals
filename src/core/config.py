@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     celery: CelerySettings = CelerySettings()
 
     s3: S3Settings = S3Settings()
-    embedding: "EmbeddingSettings" = EmbeddingSettings()
+    embedding: EmbeddingSettings = EmbeddingSettings()
     otel: OtelSettings = OtelSettings()
 
     model_config = SettingsConfigDict(extra="ignore")

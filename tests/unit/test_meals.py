@@ -152,9 +152,10 @@ async def test_add_food_to_meal(client: AsyncClient, app: FastAPI, mock_db: Asyn
     food_mock.image_key = None
     translation_mock = MagicMock()
     translation_mock.name = "Banana"
+    translation_mock.food_id = food_id
     mock_db.get.return_value = food_mock
     tr_result = MagicMock()
-    tr_result.scalar_one_or_none.return_value = translation_mock
+    tr_result.scalars.return_value = [translation_mock]
     mock_db.execute.return_value = tr_result
 
     response = await client.post(f"/api/v1/meals/{meal.id}/foods", json={"foodId": food_id, "amount": 150.0})
@@ -190,9 +191,10 @@ async def test_add_drink_to_meal(client: AsyncClient, app: FastAPI, mock_db: Asy
     drink_mock.image_key = None
     translation_mock = MagicMock()
     translation_mock.name = "Green Tea"
+    translation_mock.drink_id = drink_id
     mock_db.get.return_value = drink_mock
     tr_result = MagicMock()
-    tr_result.scalar_one_or_none.return_value = translation_mock
+    tr_result.scalars.return_value = [translation_mock]
     mock_db.execute.return_value = tr_result
 
     response = await client.post(f"/api/v1/meals/{meal.id}/drinks", json={"drinkId": drink_id, "amount": 250.0})
