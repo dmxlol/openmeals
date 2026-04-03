@@ -9,7 +9,6 @@ from . import ENVIRONMENT
 class CelerySettings(BaseSettings):
     broker_url: str
     result_backend: str
-    visibility_timeout: int = 15
 
     model_config = SettingsConfigDict(env_prefix="CELERY_")
 
@@ -49,6 +48,11 @@ class Settings(BaseSettings):
 
     env: str = ENVIRONMENT
     version: str = "0.0.1a"
+
+    redis_url: str = "redis://localhost:6379/0"
+
+    clients: dict[str, str] = {}  # brand → PEM public key, e.g. CLIENTS__OPENPEEL=<pubkey>
+    allowed_ips: list[str] = []
 
     modules: t.ClassVar[list] = [
         "modules.auth",
