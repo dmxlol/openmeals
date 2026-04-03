@@ -25,9 +25,6 @@ dependencies = [
     "pgvector~=0.4.0",
     # task queue
     "celery[redis]~=5.4.0",
-    # ml-depedencies. in default for simplicity, but must be used only in worker scope.
-    "torch",
-    "sentence-transformers~=4.0.0",
     # observability
     "opentelemetry-api",
     "opentelemetry-sdk",
@@ -37,9 +34,14 @@ dependencies = [
     "opentelemetry-instrumentation-httpx",
     "boto3~=1.42.73",
     "pillow~=12.1.1",
+    "slowapi~=0.1.9",
 ]
 
 [dependency-groups]
+ml = [
+    "torch",
+    "sentence-transformers~=4.0.0",
+]
 dev = [
     "pytest",
     "pytest-asyncio",
