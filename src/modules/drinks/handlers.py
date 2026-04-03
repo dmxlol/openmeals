@@ -2,7 +2,7 @@ import asyncio
 import builtins
 import typing as t
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request, Response
 from sqlalchemy import Numeric, cast, func, select
 from starlette import status
 
@@ -25,6 +25,7 @@ from modules.drinks.schemes import (
 from modules.drinks.tasks import generate_drink_embedding, process_drink_image
 from modules.users.dependencies import CurrentUserDependency, LocaleDependency, OptionalUserDependency
 from services.image import ImageContentType, ImageManagerDependency
+from services.ratelimit import brand_limit, ip_limit_strategy, limiter, user_limit_strategy
 from services.tasks import embed_text
 
 router = APIRouter(prefix="/drinks", tags=["drinks"])
@@ -50,7 +51,11 @@ async def list_drinks(
 
 
 @router.get("/search")
+@limiter.limit(brand_limit("60/minute", "30/minute"), key_func=user_limit_strategy)
+@limiter.limit(brand_limit("20/minute", "5/minute"), key_func=ip_limit_strategy)
 async def search_drinks(
+    request: Request,
+    response: Response,
     db: DBSessionDependency,
     _user: OptionalUserDependency,
     locale: LocaleDependency,
@@ -102,7 +107,11 @@ async def get_drink(
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
+@limiter.limit(brand_limit("60/minute", "30/minute"), key_func=user_limit_strategy)
+@limiter.limit(brand_limit("20/minute", "5/minute"), key_func=ip_limit_strategy)
 async def create_drink(
+    request: Request,
+    response: Response,
     body: DrinkCreate,
     db: DBSessionDependency,
     user: CurrentUserDependency,
@@ -122,7 +131,10 @@ async def create_drink(
 
 
 @router.patch("/{pk}")
+@limiter.limit(brand_limit("120/minute", "60/minute"), key_func=user_limit_strategy)
 async def update_drink(
+    request: Request,
+    response: Response,
     body: DrinkUpdate,
     db: DBSessionDependency,
     drink: WritableDrinkDependency,
@@ -150,7 +162,10 @@ async def update_drink(
 
 
 @router.delete("/{pk}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit(brand_limit("120/minute", "60/minute"), key_func=user_limit_strategy)
 async def delete_drink(
+    request: Request,
+    response: Response,
     db: DBSessionDependency,
     drink: WritableDrinkDependency,
 ) -> None:
@@ -159,7 +174,11 @@ async def delete_drink(
 
 
 @router.post("/{pk}/image")
+@limiter.limit(brand_limit("10/minute", "5/minute"), key_func=user_limit_strategy)
+@limiter.limit(brand_limit("5/minute", "2/minute"), key_func=ip_limit_strategy)
 async def upload_drink_image(
+    request: Request,
+    response: Response,
     drink: WritableDrinkDependency,
     db: DBSessionDependency,
     image_manager: ImageManagerDependency,

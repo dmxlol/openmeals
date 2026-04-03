@@ -1,6 +1,6 @@
 import typing as t
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request, Response
 from sqlalchemy import select
 from starlette import status
 
@@ -12,13 +12,17 @@ from libs.types import DBSessionDependency
 from modules.auth.models import UserOAuth
 from modules.auth.schemes import RefreshRequest, TokenResponse
 from modules.users.models import User
+from services.ratelimit import brand_limit, ip_limit_strategy, limiter, resolve_client_brand
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 tokens = JWTTokenProvider(settings)
 
 
 @router.get("/{provider}/callback")
+@limiter.limit(brand_limit("20/minute", "10/minute"), key_func=ip_limit_strategy)
 async def oauth_callback(
+    request: Request,
+    response: Response,
     provider: OAuthProviderName,
     db: DBSessionDependency,
     code: t.Annotated[str, Query()],
@@ -47,16 +51,22 @@ async def oauth_callback(
     else:
         user = await db.get(User, user_oauth.user_id)
 
-    return TokenResponse(**tokens.create_token_pair(user.id, user.name))
+    client_token = request.headers.get("Client-Token") or request.cookies.get("client_token")
+    azp = resolve_client_brand(client_token) if client_token else None
+    return TokenResponse(**tokens.create_token_pair(user.id, user.name, azp=azp))
 
 
 @router.post("/refresh")
-async def refresh_token(body: RefreshRequest, db: DBSessionDependency) -> TokenResponse:
+@limiter.limit(brand_limit("20/minute", "10/minute"), key_func=ip_limit_strategy)
+async def refresh_token(
+    request: Request, response: Response, body: RefreshRequest, db: DBSessionDependency
+) -> TokenResponse:
     payload = tokens.decode_token(body.refresh_token, "refresh")
     user = await db.get(User, payload["sub"])
     if user is None:
         raise UnauthorizedError
-    return TokenResponse(**tokens.create_token_pair(user.id, user.name))
+    azp = payload.get("azp")
+    return TokenResponse(**tokens.create_token_pair(user.id, user.name, azp=azp))
 
 
 @router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)

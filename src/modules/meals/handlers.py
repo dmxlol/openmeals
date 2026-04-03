@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request, Response
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from starlette import status
@@ -31,6 +31,7 @@ from modules.meals.schemes import (
     MealUpdate,
 )
 from modules.users.dependencies import CurrentUserDependency, LocaleDependency
+from services.ratelimit import brand_limit, limiter, user_limit_strategy
 
 router = APIRouter(prefix="/meals", tags=["meals"])
 cdn = settings.s3.cdn_base_url
@@ -97,7 +98,10 @@ async def get_meal(
 
 
 @router.post("", response_model=MealResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(brand_limit("120/minute", "60/minute"), key_func=user_limit_strategy)
 async def create_meal(
+    request: Request,
+    response: Response,
     body: MealCreate,
     db: DBSessionDependency,
     user: CurrentUserDependency,
@@ -132,7 +136,10 @@ async def delete_meal(
 
 
 @router.post("/{meal_id}/foods", status_code=status.HTTP_201_CREATED)
+@limiter.limit(brand_limit("120/minute", "60/minute"), key_func=user_limit_strategy)
 async def add_meal_food(
+    request: Request,
+    response: Response,
     body: MealFoodCreate,
     db: DBSessionDependency,
     meal: MealDependency,
@@ -182,7 +189,9 @@ async def delete_meal_food(
 
 
 @router.post("/{meal_id}/drinks", status_code=status.HTTP_201_CREATED)
+@limiter.limit(brand_limit("120/minute", "60/minute"), key_func=user_limit_strategy)
 async def add_meal_drink(
+    request: Request,
     body: MealDrinkCreate,
     db: DBSessionDependency,
     meal: MealDependency,
