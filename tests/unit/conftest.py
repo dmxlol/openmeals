@@ -4,6 +4,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 from ulid import ULID
 
@@ -35,6 +37,7 @@ def mock_db() -> AsyncMock:
 @pytest.fixture
 def app(mock_db: AsyncMock, mock_user: User) -> FastAPI:
     application = create_app()
+    application.state.limiter = Limiter(key_func=get_remote_address)
     application.dependency_overrides[get_db_dependency] = lambda: mock_db
     application.dependency_overrides[get_current_user_dependency] = lambda: mock_user
     application.dependency_overrides[get_optional_user_dependency] = lambda: mock_user
@@ -54,6 +57,7 @@ async def client(app: FastAPI) -> t.AsyncGenerator[AsyncClient]:
 @pytest.fixture
 async def anon_client(mock_db: AsyncMock) -> t.AsyncGenerator[AsyncClient]:
     application = create_app()
+    application.state.limiter = Limiter(key_func=get_remote_address)
     application.dependency_overrides[get_db_dependency] = lambda: mock_db
     application.dependency_overrides[get_optional_user_dependency] = lambda: None
     application.dependency_overrides[get_locale_dependency] = lambda: Locale.EN_US
