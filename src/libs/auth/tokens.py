@@ -19,9 +19,9 @@ class TokenPair(t.TypedDict):
 
 
 class TokenProvider(t.Protocol):
-    def create_access_token(self, sub: str, name: str) -> str: ...
-    def create_refresh_token(self, sub: str, name: str) -> str: ...
-    def create_token_pair(self, sub: str, name: str) -> TokenPair: ...
+    def create_access_token(self, sub: str, name: str, azp: str | None = None) -> str: ...
+    def create_refresh_token(self, sub: str, name: str, azp: str | None = None) -> str: ...
+    def create_token_pair(self, sub: str, name: str, azp: str | None = None) -> TokenPair: ...
     def decode_token(self, token: str, expected_type: str) -> dict: ...
 
 
@@ -36,10 +36,12 @@ class JWTTokenProvider:
         self._access_ttl = timedelta(minutes=settings.access_token_expire_minutes)
         self._refresh_ttl = timedelta(days=settings.refresh_token_expire_days)
 
-    def _token_factory(self, sub: str, name: str, type_: t.Literal["access", "refresh"]) -> dict:
+    def _token_factory(
+        self, sub: str, name: str, type_: t.Literal["access", "refresh"], azp: str | None = None
+    ) -> dict:
         now = utcnow()
         exp = now + (self._access_ttl if type_ == "access" else self._refresh_ttl)
-        return {
+        payload: dict = {
             "sub": sub,
             "name": name,
             "type": type_,
@@ -49,17 +51,20 @@ class JWTTokenProvider:
             "exp": exp,
             "jti": secrets.token_urlsafe(16),
         }
+        if azp is not None:
+            payload["azp"] = azp
+        return payload
 
-    def create_access_token(self, sub: str, name: str) -> str:
-        return self._encode(self._token_factory(sub, name, "access"))
+    def create_access_token(self, sub: str, name: str, azp: str | None = None) -> str:
+        return self._encode(self._token_factory(sub, name, "access", azp=azp))
 
-    def create_refresh_token(self, sub: str, name: str) -> str:
-        return self._encode(self._token_factory(sub, name, "refresh"))
+    def create_refresh_token(self, sub: str, name: str, azp: str | None = None) -> str:
+        return self._encode(self._token_factory(sub, name, "refresh", azp=azp))
 
-    def create_token_pair(self, sub: str, name: str) -> TokenPair:
+    def create_token_pair(self, sub: str, name: str, azp: str | None = None) -> TokenPair:
         return {
-            "access_token": self.create_access_token(sub, name),
-            "refresh_token": self.create_refresh_token(sub, name),
+            "access_token": self.create_access_token(sub, name, azp=azp),
+            "refresh_token": self.create_refresh_token(sub, name, azp=azp),
             "token_type": "bearer",
         }
 
