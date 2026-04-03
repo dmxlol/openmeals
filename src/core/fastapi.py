@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
 from starlette import status
 from starlette.responses import Response
@@ -10,6 +11,7 @@ from core.database import get_async_session_factory
 from core.lifespan import lifespan
 from core.telemetry import instrument_app
 from libs.app import AppRegistry
+from services.ratelimit import limiter
 from utils.fastapi import register_exception_handlers
 
 from .config import settings
@@ -35,6 +37,8 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    app.state.limiter = limiter
+    app.add_middleware(SlowAPIMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

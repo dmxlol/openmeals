@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
+from slowapi.errors import RateLimitExceeded
 from starlette import status
 
 from libs.exceptions import AppError
@@ -29,6 +30,14 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(ValidationError)
     async def validation_error_handler(_request: Request, exc: ValidationError) -> JSONResponse:
         return _error_response(status.HTTP_422_UNPROCESSABLE_ENTITY, "Validation failed", exc.errors())
+
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_handler(_request: Request, _exc: RateLimitExceeded) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"detail": "Rate limit exceeded"},
+            headers={"Retry-After": "60"},
+        )
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
