@@ -1,7 +1,9 @@
 import typing as t
 
-from pydantic import SecretStr
+from pydantic import PrivateAttr, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from libs.embeddings.config import MockConfig, OpenAIConfig, SentenceTransformerConfig, TritonConfig
 
 from . import ENVIRONMENT
 
@@ -37,9 +39,25 @@ class S3Settings(BaseSettings):
 
 class EmbeddingSettings(BaseSettings):
     provider: t.Literal["sentence-transformers", "triton", "openai", "mock"] = "sentence-transformers"
-    model: str = "intfloat/multilingual-e5-base"
-    dimension: int = 768
+
+    _config: SentenceTransformerConfig | TritonConfig | OpenAIConfig | MockConfig = PrivateAttr()
+
     model_config = SettingsConfigDict(env_prefix="EMBEDDING_")
+
+    def model_post_init(self, __context: t.Any) -> None:
+        match self.provider:
+            case "sentence-transformers":
+                self._config = SentenceTransformerConfig()
+            case "triton":
+                self._config = TritonConfig()
+            case "openai":
+                self._config = OpenAIConfig()
+            case "mock":
+                self._config = MockConfig()
+
+    @property
+    def config(self) -> SentenceTransformerConfig | TritonConfig | OpenAIConfig | MockConfig:
+        return self._config
 
 
 class Settings(BaseSettings):

@@ -1,6 +1,8 @@
 # ruff: noqa: PLC0415
 import typing as t
 
+from libs.embeddings.config import MockConfig, OpenAIConfig, SentenceTransformerConfig, TritonConfig
+
 if t.TYPE_CHECKING:
     from core.config import Settings
 
@@ -8,31 +10,24 @@ if t.TYPE_CHECKING:
 
 
 def create_embedding_provider(settings: "Settings") -> "EmbeddingProvider":
-    match settings.embedding.provider:
-        case "sentence-transformers":
+    match settings.embedding.config:
+        case SentenceTransformerConfig() as cfg:
             from libs.embeddings.sentence_transformer import SentenceTransformerProvider
 
-            return SentenceTransformerProvider(model_name=settings.embedding.model)
-        case "triton":
+            return SentenceTransformerProvider(model_name=cfg.model)
+        case TritonConfig() as cfg:
             from libs.embeddings.triton import TritonProvider
 
-            return TritonProvider(
-                url=settings.embedding.triton_url,
-                model_name=settings.embedding.model,
-                dimension=settings.embedding.dimension,
-            )
-        case "openai":
+            return TritonProvider(url=cfg.url, model_name=cfg.model, dimension=cfg.dimension)
+        case OpenAIConfig() as cfg:
             from libs.embeddings.openai import OpenAIProvider
 
             return OpenAIProvider(
-                api_key=settings.embedding.openai_api_key.get_secret_value(),
-                model_name=settings.embedding.model,
-                dimension=settings.embedding.dimension,
+                api_key=cfg.api_key.get_secret_value(),
+                model_name=cfg.model,
+                dimension=cfg.dimension,
             )
-        case "mock":
+        case MockConfig() as cfg:
             from libs.embeddings.mock import MockProvider
 
-            return MockProvider(dimension=settings.embedding.dimension)
-        case _:
-            msg = f"Unknown embedding provider: {settings.embedding.provider}"
-            raise ValueError(msg)
+            return MockProvider(dimension=cfg.dimension)

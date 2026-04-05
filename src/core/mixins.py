@@ -16,4 +16,4 @@ class IngestibleMixin(ULIDPKMixin, TimestampMixin, SQLModel):
 
 
 class IngestibleTranslationMixin(SQLModel):
-    embedding: list[float] | None = Field(default=None, sa_type=Vector(settings.embedding.dimension))
+    embedding: list[float] | None = Field(default=None, sa_type=Vector(settings.embedding.config.dimension))
