@@ -71,4 +71,5 @@ def instrument_sqlalchemy(engine: "Engine", settings: "OtelSettings") -> None:
 def instrument_celery(settings: "OtelSettings") -> None:
     if not settings.enabled:
         return
+    setup_telemetry(settings)
     CeleryInstrumentor().instrument()
