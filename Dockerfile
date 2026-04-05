@@ -28,9 +28,8 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --no-dev --no-install-project
 
 # --- worker deps (api deps + ml group) ---
-FROM base AS deps-worker
+FROM deps-api AS deps-worker
 
-COPY pyproject.toml uv.lock ./
 RUN uv sync --no-dev --no-install-project --group ml
 
 # --- api image ---
