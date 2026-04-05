@@ -27,17 +27,26 @@ from modules.users.dependencies import CurrentUserDependency, LocaleDependency, 
 from services.image import ImageContentType, ImageManagerDependency
 from services.ratelimit import brand_limit, ip_limit_strategy, limiter, user_limit_strategy
 from services.tasks import embed_text
+from utils.fastapi import (
+    RESPONSES_AUTH,
+    RESPONSES_CONFLICT,
+    RESPONSES_FORBIDDEN,
+    RESPONSES_NOT_FOUND,
+    RESPONSES_RATE_LIMIT,
+    RESPONSES_TIMEOUT,
+    merge_responses,
+)
 
 router = APIRouter(prefix="/foods", tags=["foods"])
 
 
-@router.get("")
+@router.get("", summary="List foods")
 async def list_foods(
     db: DBSessionDependency,
     user: OptionalUserDependency,
     pagination: PaginationDependency,
     locale: LocaleDependency,
-    mine: t.Annotated[bool | None, Query()] = None,
+    mine: t.Annotated[bool | None, Query(description="If true, return only items created by the current user")] = None,
 ) -> CursorPage[FoodResponse]:
     stmt = select(Food).where(ingestible_visible_filter(Food, user))
     if mine is True and user is not None:
@@ -50,7 +59,9 @@ async def list_foods(
     return CursorPage(items=items, total=page.total, next_cursor=page.next_cursor)
 
 
-@router.get("/search")
+@router.get(
+    "/search", summary="Semantic search for foods", responses=merge_responses(RESPONSES_TIMEOUT, RESPONSES_RATE_LIMIT)
+)
 @limiter.limit(brand_limit("60/minute", "30/minute"), key_func=user_limit_strategy)
 @limiter.limit(brand_limit("20/minute", "5/minute"), key_func=ip_limit_strategy)
 async def search_foods(
@@ -59,8 +70,8 @@ async def search_foods(
     db: DBSessionDependency,
     _user: OptionalUserDependency,
     locale: LocaleDependency,
-    q: t.Annotated[str, Query(min_length=1)],
-    limit: t.Annotated[int, Query(ge=1, le=100)] = 20,
+    q: t.Annotated[str, Query(min_length=1, description="Natural-language search query")],
+    limit: t.Annotated[int, Query(ge=1, le=100, description="Maximum search results")] = 20,
 ) -> list[FoodSearchResult]:
     try:
         task_result = embed_text.delay(q)
@@ -98,7 +109,7 @@ async def search_foods(
     ]
 
 
-@router.get("/{pk}")
+@router.get("/{pk}", summary="Get a food by ID", responses=RESPONSES_NOT_FOUND)
 async def get_food(
     food: FoodDependency,
     translation: FoodTranslationDependency,
@@ -106,7 +117,12 @@ async def get_food(
     return apply_translation(food, translation, FoodResponse)
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a food",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_RATE_LIMIT),
+)
 @limiter.limit(brand_limit("60/minute", "30/minute"), key_func=user_limit_strategy)
 @limiter.limit(brand_limit("20/minute", "5/minute"), key_func=ip_limit_strategy)
 async def create_food(
@@ -130,7 +146,11 @@ async def create_food(
     return apply_translation(food, translation, FoodResponse)
 
 
-@router.patch("/{pk}")
+@router.patch(
+    "/{pk}",
+    summary="Update a food",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND, RESPONSES_FORBIDDEN),
+)
 @limiter.limit(brand_limit("120/minute", "60/minute"), key_func=user_limit_strategy)
 async def update_food(
     request: Request,
@@ -161,7 +181,12 @@ async def update_food(
     return apply_translation(food, en_us_tr, FoodResponse)
 
 
-@router.delete("/{pk}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{pk}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a food",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND, RESPONSES_FORBIDDEN),
+)
 @limiter.limit(brand_limit("120/minute", "60/minute"), key_func=user_limit_strategy)
 async def delete_food(
     request: Request,
@@ -173,7 +198,11 @@ async def delete_food(
     await db.commit()
 
 
-@router.post("/{pk}/image")
+@router.post(
+    "/{pk}/image",
+    summary="Get a presigned URL for food image upload",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND, RESPONSES_CONFLICT),
+)
 @limiter.limit(brand_limit("10/minute", "5/minute"), key_func=user_limit_strategy)
 @limiter.limit(brand_limit("5/minute", "2/minute"), key_func=ip_limit_strategy)
 async def upload_food_image(
@@ -182,7 +211,7 @@ async def upload_food_image(
     food: WritableFoodDependency,
     db: DBSessionDependency,
     image_manager: ImageManagerDependency,
-    content_type: t.Annotated[ImageContentType, Query()],
+    content_type: t.Annotated[ImageContentType, Query(description="MIME type of the image to upload")],
 ) -> ImageUploadResponse:
     if food.image_key and food.image_key.startswith("raw/"):
         raise ConflictError("Image upload already in progress")

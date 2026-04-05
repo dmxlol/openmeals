@@ -32,12 +32,13 @@ from modules.meals.schemes import (
 )
 from modules.users.dependencies import CurrentUserDependency, LocaleDependency
 from services.ratelimit import brand_limit, limiter, user_limit_strategy
+from utils.fastapi import RESPONSES_AUTH, RESPONSES_CONFLICT, RESPONSES_NOT_FOUND, RESPONSES_RATE_LIMIT, merge_responses
 
 router = APIRouter(prefix="/meals", tags=["meals"])
 cdn = settings.s3.cdn_base_url
 
 
-@router.get("", response_model=CursorPage[MealResponse])
+@router.get("", response_model=CursorPage[MealResponse], summary="List meals", responses=RESPONSES_AUTH)
 async def list_meals(
     db: DBSessionDependency,
     user: CurrentUserDependency,
@@ -47,7 +48,11 @@ async def list_meals(
     return await paginate(db, stmt, Meal, pagination)
 
 
-@router.get("/{meal_id}")
+@router.get(
+    "/{meal_id}",
+    summary="Get a meal with foods and drinks",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND),
+)
 async def get_meal(
     db: DBSessionDependency,
     meal: MealDependency,
@@ -97,7 +102,13 @@ async def get_meal(
     )
 
 
-@router.post("", response_model=MealResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=MealResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a meal",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_RATE_LIMIT),
+)
 @limiter.limit(brand_limit("120/minute", "60/minute"), key_func=user_limit_strategy)
 async def create_meal(
     request: Request,
@@ -113,7 +124,12 @@ async def create_meal(
     return meal
 
 
-@router.patch("/{meal_id}", response_model=MealResponse)
+@router.patch(
+    "/{meal_id}",
+    response_model=MealResponse,
+    summary="Update a meal",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND),
+)
 async def update_meal(
     body: MealUpdate,
     db: DBSessionDependency,
@@ -126,7 +142,12 @@ async def update_meal(
     return meal
 
 
-@router.delete("/{meal_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{meal_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a meal",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND),
+)
 async def delete_meal(
     db: DBSessionDependency,
     meal: MealDependency,
@@ -135,7 +156,12 @@ async def delete_meal(
     await db.commit()
 
 
-@router.post("/{meal_id}/foods", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{meal_id}/foods",
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a food to a meal",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND, RESPONSES_CONFLICT),
+)
 @limiter.limit(brand_limit("120/minute", "60/minute"), key_func=user_limit_strategy)
 async def add_meal_food(
     request: Request,
@@ -163,7 +189,11 @@ async def add_meal_food(
     return MealFoodResponse(**meal_food.model_dump(), food_name=food_name, image_url=image_url)
 
 
-@router.patch("/{meal_id}/foods/{food_id}")
+@router.patch(
+    "/{meal_id}/foods/{food_id}",
+    summary="Update food amount in a meal",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND),
+)
 async def update_meal_food(
     body: MealFoodUpdate,
     db: DBSessionDependency,
@@ -179,7 +209,12 @@ async def update_meal_food(
     return MealFoodResponse(**meal_food.model_dump(), food_name=food_name, image_url=image_url)
 
 
-@router.delete("/{meal_id}/foods/{food_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{meal_id}/foods/{food_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove a food from a meal",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND),
+)
 async def delete_meal_food(
     db: DBSessionDependency,
     meal_food: MealFoodDependency,
@@ -188,7 +223,12 @@ async def delete_meal_food(
     await db.commit()
 
 
-@router.post("/{meal_id}/drinks", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{meal_id}/drinks",
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a drink to a meal",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND, RESPONSES_CONFLICT),
+)
 @limiter.limit(brand_limit("120/minute", "60/minute"), key_func=user_limit_strategy)
 async def add_meal_drink(
     request: Request,
@@ -218,7 +258,11 @@ async def add_meal_drink(
     )
 
 
-@router.patch("/{meal_id}/drinks/{drink_id}")
+@router.patch(
+    "/{meal_id}/drinks/{drink_id}",
+    summary="Update drink amount in a meal",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND),
+)
 async def update_meal_drink(
     body: MealDrinkUpdate,
     db: DBSessionDependency,
@@ -235,7 +279,12 @@ async def update_meal_drink(
     )
 
 
-@router.delete("/{meal_id}/drinks/{drink_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{meal_id}/drinks/{drink_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove a drink from a meal",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND),
+)
 async def delete_meal_drink(
     db: DBSessionDependency,
     meal_drink: MealDrinkDependency,

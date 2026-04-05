@@ -11,11 +11,17 @@ from modules.summaries.dependencies import (
 from modules.summaries.models import MealSummary, PeriodicSummary
 from modules.summaries.schemes import MealSummaryResponse, PeriodicSummaryResponse
 from modules.users.dependencies import CurrentUserDependency
+from utils.fastapi import RESPONSES_AUTH, RESPONSES_NOT_FOUND, merge_responses
 
 router = APIRouter(tags=["summaries"])
 
 
-@router.get("/meal-summaries", response_model=CursorPage[MealSummaryResponse])
+@router.get(
+    "/meal-summaries",
+    response_model=CursorPage[MealSummaryResponse],
+    summary="List meal summaries",
+    responses=RESPONSES_AUTH,
+)
 async def list_meal_summaries(
     db: DBSessionDependency,
     user: CurrentUserDependency,
@@ -25,14 +31,24 @@ async def list_meal_summaries(
     return await paginate(db, stmt, MealSummary, pagination)
 
 
-@router.get("/meal-summaries/{summary_id}", response_model=MealSummaryResponse)
+@router.get(
+    "/meal-summaries/{summary_id}",
+    response_model=MealSummaryResponse,
+    summary="Get a meal summary",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND),
+)
 async def get_meal_summary(
     summary: MealSummaryDependency,
 ) -> MealSummary:
     return summary
 
 
-@router.get("/periodic-summaries", response_model=CursorPage[PeriodicSummaryResponse])
+@router.get(
+    "/periodic-summaries",
+    response_model=CursorPage[PeriodicSummaryResponse],
+    summary="List periodic summaries",
+    responses=RESPONSES_AUTH,
+)
 async def list_periodic_summaries(
     db: DBSessionDependency,
     user: CurrentUserDependency,
@@ -42,7 +58,12 @@ async def list_periodic_summaries(
     return await paginate(db, stmt, PeriodicSummary, pagination)
 
 
-@router.get("/periodic-summaries/{summary_id}", response_model=PeriodicSummaryResponse)
+@router.get(
+    "/periodic-summaries/{summary_id}",
+    response_model=PeriodicSummaryResponse,
+    summary="Get a periodic summary",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND),
+)
 async def get_periodic_summary(
     summary: PeriodicSummaryDependency,
 ) -> PeriodicSummary:

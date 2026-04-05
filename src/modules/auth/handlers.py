@@ -13,19 +13,20 @@ from modules.auth.models import UserOAuth
 from modules.auth.schemes import RefreshRequest, TokenResponse
 from modules.users.models import User
 from services.ratelimit import brand_limit, ip_limit_strategy, limiter, resolve_client_brand
+from utils.fastapi import RESPONSES_AUTH, RESPONSES_RATE_LIMIT, merge_responses
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 tokens = JWTTokenProvider(settings)
 
 
-@router.get("/{provider}/callback")
+@router.get("/{provider}/callback", summary="Exchange OAuth code for tokens", responses=RESPONSES_RATE_LIMIT)
 @limiter.limit(brand_limit("20/minute", "10/minute"), key_func=ip_limit_strategy)
 async def oauth_callback(
     request: Request,
     response: Response,
     provider: OAuthProviderName,
     db: DBSessionDependency,
-    code: t.Annotated[str, Query()],
+    code: t.Annotated[str, Query(description="Authorization code from the OAuth provider")],
 ) -> TokenResponse:
     oauth_provider = get_provider(provider)
     claims = oauth_provider.decode(code, settings)
@@ -56,7 +57,9 @@ async def oauth_callback(
     return TokenResponse(**tokens.create_token_pair(user.id, user.name, azp=azp))
 
 
-@router.post("/refresh")
+@router.post(
+    "/refresh", summary="Refresh an access token", responses=merge_responses(RESPONSES_AUTH, RESPONSES_RATE_LIMIT)
+)
 @limiter.limit(brand_limit("20/minute", "10/minute"), key_func=ip_limit_strategy)
 async def refresh_token(
     request: Request, response: Response, body: RefreshRequest, db: DBSessionDependency
@@ -69,6 +72,6 @@ async def refresh_token(
     return TokenResponse(**tokens.create_token_pair(user.id, user.name, azp=azp))
 
 
-@router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/session", status_code=status.HTTP_204_NO_CONTENT, summary="Log out")
 async def logout() -> None:
     pass

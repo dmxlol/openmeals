@@ -6,18 +6,21 @@ from libs.types import DBSessionDependency
 from modules.users.dependencies import CurrentUserDependency, CurrentUserProfileDependency
 from modules.users.models import User, UserProfile
 from modules.users.schemes import UserProfileResponse, UserProfileUpdate, UserResponse
+from utils.fastapi import RESPONSES_AUTH, RESPONSES_NOT_FOUND, merge_responses
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse, summary="Get the current user", responses=RESPONSES_AUTH)
 async def get_me(
     user: CurrentUserDependency,
 ) -> User:
     return user
 
 
-@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/me", status_code=status.HTTP_204_NO_CONTENT, summary="Delete the current user", responses=RESPONSES_AUTH
+)
 async def delete_me(
     db: DBSessionDependency,
     user: CurrentUserDependency,
@@ -26,14 +29,24 @@ async def delete_me(
     await db.commit()
 
 
-@router.get("/me/profile", response_model=UserProfileResponse)
+@router.get(
+    "/me/profile",
+    response_model=UserProfileResponse,
+    summary="Get the current user's profile",
+    responses=merge_responses(RESPONSES_AUTH, RESPONSES_NOT_FOUND),
+)
 async def get_my_profile(
     profile: CurrentUserProfileDependency,
 ) -> UserProfile:
     return profile
 
 
-@router.put("/me/profile", response_model=UserProfileResponse)
+@router.put(
+    "/me/profile",
+    response_model=UserProfileResponse,
+    summary="Create or replace the user profile",
+    responses=RESPONSES_AUTH,
+)
 async def upsert_my_profile(
     body: UserProfileUpdate,
     db: DBSessionDependency,
