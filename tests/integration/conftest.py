@@ -1,3 +1,4 @@
+import os
 import typing as t
 
 import psycopg
@@ -17,7 +18,10 @@ from modules.users.models import User
 from tests.factories import UserFactory
 
 TEST_DB_URL = settings.database_url.get_secret_value()
-SYNC_ADMIN_DSN = "host=localhost port=5432 user=nutrition password=nutrition dbname=nutrition"
+SYNC_ADMIN_DSN = os.environ.get(
+    "TEST_ADMIN_DSN",
+    "host=localhost port=5432 user=nutrition password=nutrition dbname=nutrition",
+)
 
 _db_created = False
 

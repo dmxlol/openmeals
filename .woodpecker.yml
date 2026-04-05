@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nutrition
+      POSTGRES_PASSWORD: nutrition
+      POSTGRES_DB: nutrition
+
+  redis:
+    image: redis:7-alpine
+
+steps:
+  - name: lint
+    image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+    commands:
+      - uv sync --frozen --no-dev --no-install-project
+      - make lint
+
+  - name: test
+    image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+    environment:
+      DATABASE_URL: postgresql+asyncpg://nutrition:nutrition@postgres:5432/test_openmeals
+      TEST_ADMIN_DSN: host=postgres port=5432 user=nutrition password=nutrition dbname=nutrition
+      SECRET_KEY: ci-secret-key
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      EMBEDDING_PROVIDER: mock
+    commands:
+      - uv sync --frozen --no-install-project
+      - make test
+
+  - name: build-api
+    image: woodpeckerci/plugin-docker-buildx
+    settings:
+      registry: ghcr.io
+      repo: ghcr.io/${CI_REPO_OWNER}/openmeals/api
+      username:
+        from_secret: ghcr_username
+      password:
+        from_secret: ghcr_token
+      target: api
+      tags:
+        - latest
+        - ${CI_COMMIT_SHA:0:8}
+    when:
+      - branch: master
+        event: push
+
+  - name: build-worker
+    image: woodpeckerci/plugin-docker-buildx
+    settings:
+      registry: ghcr.io
+      repo: ghcr.io/${CI_REPO_OWNER}/openmeals/worker
+      username:
+        from_secret: ghcr_username
+      password:
+        from_secret: ghcr_token
+      target: worker
+      tags:
+        - latest
+        - ${CI_COMMIT_SHA:0:8}
+    when:
+      - branch: master
+        event: push
