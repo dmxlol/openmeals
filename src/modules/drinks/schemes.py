@@ -6,11 +6,11 @@ from libs.types import ULIDStr
 
 
 class DrinkBase(NamedSchema):
-    ph: float
+    ph: float = Field(description="pH level (0–14)")
     is_carbonated: bool = False
-    vitamins: dict[str, float] = Field(default_factory=dict)
-    minerals: dict[str, float] = Field(default_factory=dict)
-    nutrients: dict[str, float] = Field(default_factory=dict)
+    vitamins: dict[str, float] = Field(default_factory=dict, description="Vitamin amounts in mg per 100ml")
+    minerals: dict[str, float] = Field(default_factory=dict, description="Mineral amounts in mg per 100ml")
+    nutrients: dict[str, float] = Field(default_factory=dict, description="Additional nutrient amounts per 100ml")
 
 
 class DrinkCreate(DrinkBase):
@@ -34,4 +34,4 @@ class DrinkResponse(ImageMixin, TimestampSchema, IdSchema, DrinkBase):
 
 
 class DrinkSearchResult(DrinkResponse):
-    score: float
+    score: float = Field(description="Cosine distance to query (lower = more relevant)")

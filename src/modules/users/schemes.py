@@ -1,5 +1,7 @@
 from datetime import date
 
+from pydantic import Field
+
 from core.config import settings
 from libs.locale import Locale
 from libs.schemes import BaseSchema, CreatedSchema, IdSchema, TimestampSchema
@@ -12,8 +14,8 @@ class UserResponse(IdSchema, CreatedSchema):
 
 class UserProfileBase(BaseSchema):
     birthday: date
-    weight: float
-    height: float
+    weight: float = Field(description="Weight in kilograms")
+    height: float = Field(description="Height in centimeters")
     locale: Locale = Locale(settings.default_locale)
 
 

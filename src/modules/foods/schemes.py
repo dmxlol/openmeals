@@ -6,16 +6,16 @@ from libs.types import ULIDStr
 
 
 class FoodBase(NamedSchema):
-    proteins: float
-    carbs: float
-    fats: float
-    fibers: float
-    sugars: float
-    energy: float
-    glycemic_index: float
-    vitamins: dict[str, float] = Field(default_factory=dict)
-    minerals: dict[str, float] = Field(default_factory=dict)
-    nutrients: dict[str, float] = Field(default_factory=dict)
+    proteins: float = Field(description="Grams per 100g")
+    carbs: float = Field(description="Grams per 100g")
+    fats: float = Field(description="Grams per 100g")
+    fibers: float = Field(description="Grams per 100g")
+    sugars: float = Field(description="Grams per 100g")
+    energy: float = Field(description="Energy in kcal per 100g")
+    glycemic_index: float = Field(description="Glycemic index (0–100)")
+    vitamins: dict[str, float] = Field(default_factory=dict, description="Vitamin amounts in mg per 100g")
+    minerals: dict[str, float] = Field(default_factory=dict, description="Mineral amounts in mg per 100g")
+    nutrients: dict[str, float] = Field(default_factory=dict, description="Additional nutrient amounts per 100g")
 
 
 class FoodCreate(FoodBase):
@@ -44,4 +44,4 @@ class FoodResponse(ImageMixin, TimestampSchema, IdSchema, FoodBase):
 
 
 class FoodSearchResult(FoodResponse):
-    score: float
+    score: float = Field(description="Cosine distance to query (lower = more relevant)")

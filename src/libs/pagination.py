@@ -11,8 +11,8 @@ from libs.schemes import BaseSchema
 
 
 class PaginationParams(BaseSchema):
-    cursor: str | None = None
-    limit: t.Annotated[int, Field(ge=1, le=100)] = 20
+    cursor: str | None = Field(default=None, description="Cursor from a previous response's nextCursor")
+    limit: t.Annotated[int, Field(ge=1, le=100, description="Maximum items to return")] = 20
 
 
 PaginationDependency = t.Annotated[PaginationParams, Depends(PaginationParams)]

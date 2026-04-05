@@ -1,3 +1,5 @@
+from pydantic import Field
+
 from libs.schemes import BaseSchema, NamedIdSchema, NamedSchema, TimestampSchema
 from libs.types import ULIDStr
 
@@ -18,11 +20,11 @@ class MealResponse(TimestampSchema, NamedIdSchema):
 
 class MealFoodCreate(BaseSchema):
     food_id: ULIDStr
-    amount: float
+    amount: float = Field(description="Amount in grams")
 
 
 class MealFoodUpdate(BaseSchema):
-    amount: float
+    amount: float = Field(description="Amount in grams")
 
 
 class MealFoodResponse(BaseSchema):
@@ -31,16 +33,16 @@ class MealFoodResponse(BaseSchema):
     food_id: ULIDStr
     food_name: str
     image_url: str | None = None
-    amount: float
+    amount: float = Field(description="Amount in grams")
 
 
 class MealDrinkCreate(BaseSchema):
     drink_id: ULIDStr
-    amount: float
+    amount: float = Field(description="Amount in milliliters")
 
 
 class MealDrinkUpdate(BaseSchema):
-    amount: float
+    amount: float = Field(description="Amount in milliliters")
 
 
 class MealDrinkResponse(BaseSchema):
@@ -49,4 +51,4 @@ class MealDrinkResponse(BaseSchema):
     drink_id: ULIDStr
     drink_name: str
     image_url: str | None = None
-    amount: float
+    amount: float = Field(description="Amount in milliliters")

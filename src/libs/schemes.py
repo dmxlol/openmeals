@@ -53,6 +53,11 @@ class ImageMixin(BaseSchema):
         return f"{self.cdn_base_url}/{self.image_key}"
 
 
+class ErrorResponse(BaseSchema):
+    detail: str
+    extra: list | dict | None = None
+
+
 class ImageUploadResponse(BaseSchema):
-    upload_url: str
-    upload_fields: dict
+    upload_url: str = Field(description="Presigned S3 URL for the upload")
+    upload_fields: dict = Field(description="Form fields to include in the upload POST")
