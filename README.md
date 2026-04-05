@@ -2,7 +2,7 @@
 
 - **Python 3.13** · **FastAPI** · **SQLAlchemy** · **SQLModel**
 - **PostgreSQL** (Citus) · **pgvector** for vector similarity search
-- **Celery** + **Redis** for async task processing
+- **Celery** + **RabbitMQ** (broker) + **Redis** (result backend) for async task processing
 - **sentence-transformers** (`intfloat/multilingual-e5-base`) for multilingual embeddings
 - **authlib** for JWT and OAuth
 
@@ -68,3 +68,15 @@ OAuth2 Authorization Code flow with pluggable providers. Currently supported: `l
 4. Refresh with `POST /api/v1/auth/refresh`
 
 Access tokens expire in 30 min, refresh tokens in 30 days. Tokens include `iss`/`aud` claims for multi-service validation.
+
+## Multi-client support
+
+The API supports multiple branded clients with differentiated rate limits. Each client registers a PEM public key via an environment variable:
+
+```
+CLIENTS__<BRAND>=-----BEGIN PUBLIC KEY-----\n...
+```
+
+The client includes a signed JWT in a `Client-Token` request header (or `client_token` cookie). The verified brand identity is embedded in the issued JWT as the `azp` claim and used to apply per-brand rate limit tiers.
+
+To add a new brand: generate an RS256 key pair, set `CLIENTS__<YOURBRAND>=<public key>`, and sign client tokens with the private key.

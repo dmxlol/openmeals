@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     clients: dict[str, str] = {}  # brand → PEM public key, e.g. CLIENTS__OPENPEEL=<pubkey>
+    allowed_origins: list[str] = []  # CORS origins; if empty, defaults to ["*"] (dev only)
     allowed_ips: list[str] = []
 
     modules: t.ClassVar[list] = [

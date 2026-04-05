@@ -33,7 +33,9 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="OpenMeals API",
+        summary="Nutrition tracking with AI-powered analysis",
         version=settings.version,
+        license_info={"name": "Apache-2.0"},
         lifespan=lifespan,
     )
 
@@ -41,7 +43,7 @@ def create_app() -> FastAPI:
     app.add_middleware(SlowAPIMiddleware)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=settings.allowed_origins or ["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
