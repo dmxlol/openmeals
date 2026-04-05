@@ -18,6 +18,8 @@ class CelerySettings(BaseSettings):
 class OtelSettings(BaseSettings):
     enabled: bool = False
     service_name: str = "openmeals"
+    endpoint: str = ""  # OTLP HTTP base URL, e.g. http://otel-collector:4318
+    headers: dict[str, str] = {}  # e.g. {"x-honeycomb-team": "api-key"}
 
     model_config = SettingsConfigDict(env_prefix="OTEL_")
 
