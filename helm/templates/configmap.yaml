@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openmeals.fullname" . }}
+  labels:
+    {{- include "openmeals.labels" . | nindent 4 }}
+data:
+  DEFAULT_LOCALE: {{ .Values.config.defaultLocale | quote }}
+  ALLOWED_ORIGINS: {{ .Values.config.allowedOrigins | quote }}
+  EMBEDDING_PROVIDER: {{ .Values.config.embeddingProvider | quote }}
+  OTEL_ENABLED: {{ .Values.config.otelEnabled | quote }}
+  OTEL_ENDPOINT: {{ .Values.config.otelEndpoint | quote }}
+  S3_BUCKET: {{ .Values.config.s3Bucket | quote }}
+  S3_CDN_BASE_URL: {{ .Values.config.s3CdnBaseUrl | quote }}
+  AWS_DEFAULT_REGION: {{ .Values.config.awsDefaultRegion | quote }}
+  AWS_ENDPOINT_URL: {{ .Values.config.awsEndpointUrl | quote }}

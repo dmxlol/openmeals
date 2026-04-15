@@ -10,6 +10,8 @@ from collections.abc import Sequence
 
 from alembic import op
 
+from migrations.helpers import citus_available
+
 # revision identifiers, used by Alembic.
 revision: str = "c170093a26a3"
 down_revision: str | Sequence[str] | None = "acc01156a51a"
@@ -19,6 +21,9 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Upgrade schema."""
+    if not citus_available():
+        return
+
     op.execute("CREATE EXTENSION IF NOT EXISTS citus")
 
     # --- Reference tables (replicated to every shard node) ---
@@ -38,6 +43,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
+    if not citus_available():
+        return
+
     op.execute("SELECT undistribute_table('periodic_summaries')")
     op.execute("SELECT undistribute_table('meal_summaries')")
     op.execute("SELECT undistribute_table('meal_drinks')")

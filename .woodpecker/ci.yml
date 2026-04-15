@@ -1,0 +1,21 @@
+when:
+  - branch: master
+    event: push
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: nutrition
+      POSTGRES_PASSWORD: nutrition
+      POSTGRES_DB: nutrition
+
+  redis:
+    image: redis:7-alpine
+
+steps:
+  - name: test
+    image: ghcr.io/astral-sh/uv:python3.13-trixie
+    commands:
+      - uv sync --frozen --no-install-project
+      - make test

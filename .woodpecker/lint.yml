@@ -1,0 +1,10 @@
+when:
+  - branch: master
+    event: push
+
+steps:
+  - name: lint
+    image: ghcr.io/astral-sh/uv:python3.13-trixie
+    commands:
+      - uv sync --frozen --no-dev --no-install-project
+      - make lint

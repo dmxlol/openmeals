@@ -13,6 +13,8 @@
       "assets": ["pyproject.toml", "uv.lock"],
       "message": "chore(release): ${nextRelease.version} [skip ci]"
     }],
-    "@semantic-release/github"
+    ["@semantic-release/exec", {
+      "publishCmd": "sh scripts/git-release.sh ${nextRelease.gitTag} \"${nextRelease.notes}\""
+    }]
   ]
 }

@@ -1,0 +1,25 @@
+when:
+  - branch: master
+    event: push
+
+depends_on:
+  - ci
+  - lint
+
+steps:
+  - name: release
+    image: node:20-alpine
+    environment:
+      GIT_AUTHOR_NAME: woodpecker-bot
+      GIT_AUTHOR_EMAIL: ci@dmxlol.io
+      GIT_COMMITTER_NAME: woodpecker-bot
+      GIT_COMMITTER_EMAIL: ci@dmxlol.io
+      GIT_RELEASE_TOKEN:
+        from_secret: git_token
+      GIT_RELEASE_URL:
+        from_secret: git_url
+    commands:
+      - apk add --no-cache git uv jq curl
+      - npm install --no-save semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/git @semantic-release/exec
+      - export GIT_CREDENTIALS="ci:$GIT_RELEASE_TOKEN"
+      - npx semantic-release

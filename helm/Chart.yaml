@@ -1,0 +1,7 @@
+apiVersion: v2
+name: openmeals
+description: Nutrition tracking API with AI-powered analysis
+type: application
+# Overridden at publish time: helm package --version "${APP_VERSION}-${SHORT_SHA}"
+version: 0.0.0
+appVersion: "latest"

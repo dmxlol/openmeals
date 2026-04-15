@@ -13,6 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 from pgvector.sqlalchemy import Vector
 
+from migrations.helpers import citus_available
+
 # revision identifiers, used by Alembic.
 revision: str = "d4e5f6a7b8c9"
 down_revision: str | Sequence[str] | None = "15a262805bb1"
@@ -77,8 +79,9 @@ def upgrade() -> None:
         postgresql_ops={"embedding": "vector_cosine_ops"},
     )
 
-    op.execute("SELECT create_distributed_table('food_translations', 'food_id')")
-    op.execute("SELECT create_distributed_table('drink_translations', 'drink_id')")
+    if citus_available():
+        op.execute("SELECT create_distributed_table('food_translations', 'food_id')")
+        op.execute("SELECT create_distributed_table('drink_translations', 'drink_id')")
 
     op.drop_index("ix_foods_embedding", table_name="foods", postgresql_using="hnsw")
     op.drop_column("foods", "embedding")
@@ -110,8 +113,9 @@ def downgrade() -> None:
     op.alter_column("foods", "name", server_default=None)
     op.alter_column("drinks", "name", server_default=None)
 
-    op.execute("SELECT undistribute_table('drink_translations')")
-    op.execute("SELECT undistribute_table('food_translations')")
+    if citus_available():
+        op.execute("SELECT undistribute_table('drink_translations')")
+        op.execute("SELECT undistribute_table('food_translations')")
     op.drop_index("ix_drink_translations_embedding", table_name="drink_translations", postgresql_using="hnsw")
     op.drop_index("ix_food_translations_embedding", table_name="food_translations", postgresql_using="hnsw")
     op.drop_table("drink_translations")
