@@ -1,4 +1,9 @@
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release"
+        required: true
   push:
     tags: ["*"]
 
@@ -9,6 +14,6 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - run: gh release create "${{ github.ref_name }}" --generate-notes
+      - run: gh release create "${{ inputs.tag || github.ref_name }}" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
