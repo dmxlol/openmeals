@@ -5,22 +5,22 @@ description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
     # web
-    "fastapi[standard]~=0.135.0",
-    "uvicorn[standard]~=0.42.0",      # pulls uvloop + httptools automatically
+    "fastapi[standard]~=0.135",
+    "uvicorn[standard]~=0.42",      # pulls uvloop + httptools automatically
     # db
     "sqlmodel~=0.0.37",
     "sqlalchemy[asyncio]~=2.0.48",
     "asyncpg~=0.31.0",
     "psycopg[binary]~=3.2.0",
-    "alembic~=1.18.4",
+    "alembic~=1.18",
     # config/validation
-    "pydantic~=2.12.5",
-    "pydantic-settings~=2.13.1",
+    "pydantic~=2.12",
+    "pydantic-settings~=2.13",
     # auth
-    "authlib~=1.6.9",
+    "authlib~=1.6",
     "httpx",
     # ulid
-    "python-ulid~=3.1.0",
+    "python-ulid~=3.1",
     # vector search
     "pgvector~=0.4.0",
     # task queue
@@ -34,14 +34,14 @@ dependencies = [
     "opentelemetry-instrumentation-httpx",
     "opentelemetry-exporter-otlp-proto-http",
     "boto3~=1.42.73",
-    "pillow~=12.1.1",
-    "slowapi~=0.1.9",
+    "pillow~=12.2",
+    "slowapi~=0.1",
 ]
 
 [dependency-groups]
 ml = [
     "torch",
-    "sentence-transformers~=4.0.0",
+    "sentence-transformers~=4.0",
 ]
 dev = [
     "pytest",
