@@ -16,6 +16,8 @@ services:
 steps:
   - name: test
     image: ghcr.io/astral-sh/uv:python3.13-trixie
+    environment:
+      ENVIRONMENT: test
     commands:
       - uv sync --frozen --no-install-project
       - make test
