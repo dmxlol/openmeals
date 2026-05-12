@@ -3,7 +3,12 @@
   "branches": ["master"],
   "plugins": [
     ["@semantic-release/commit-analyzer", {
-      "preset": "angular"
+      "preset": "angular",
+      "releaseRules": [
+        { "breaking": true, "release": "major" },
+        { "type": "feat",  "release": "minor" },
+        { "type": "*",     "release": "patch" }
+      ]
     }],
     "@semantic-release/release-notes-generator",
     ["@semantic-release/exec", {
