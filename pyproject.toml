@@ -15,7 +15,7 @@ dependencies = [
     "alembic~=1.18",
     # config/validation
     "pydantic~=2.12",
-    "pydantic-settings~=2.13",
+    "pydantic-settings~=2.14",
     # auth
     "authlib~=1.6",
     "httpx",
